@@ -461,41 +461,38 @@
         chatHistory: chatHistory.slice(-6)
       };
 
-      let resp = null;
-      let lastErr = null;
+      let data = null;
 
-      // Try active serverUrl first, then fallback to VPS mesh IP if needed
-      const endpoints = [
-        serverUrl,
-        'http://localhost:3456',
-        'http://127.0.0.1:3456',
-        'http://100.86.244.6:3456'
-      ];
-
-      for (const ep of Array.from(new Set(endpoints))) {
-        try {
-          resp = await fetch(`${ep}/api/tutor/vision-ask`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(20000)
+      // 1. Extension context: send to background service worker (bypasses HTTPS mixed-content blocks)
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        data = await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({ type: 'ASK_TUTOR', payload }, (res) => {
+            if (chrome.runtime.lastError) {
+              return reject(new Error(chrome.runtime.lastError.message));
+            }
+            if (!res) {
+              return reject(new Error('Extension service worker unreachable'));
+            }
+            if (res.success) {
+              resolve(res.data);
+            } else {
+              reject(new Error(res.error || 'Server request failed'));
+            }
           });
-          if (resp && resp.ok) {
-            serverUrl = ep; // Store winning endpoint
-            break;
-          }
-        } catch (e) {
-          lastErr = e;
-        }
+        });
+      } else {
+        // 2. Direct fetch fallback for non-extension environments
+        const resp = await fetch('http://100.86.244.6:3456/api/tutor/vision-ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        data = await resp.json();
       }
 
       loadingDiv.remove();
 
-      if (!resp || !resp.ok) {
-        throw new Error(lastErr?.message || `Server responded with ${resp?.status || 'Offline'}`);
-      }
-
-      const data = await resp.json();
       const content = data.content || 'Here is the analysis of this video frame.';
 
       chatHistory.push({ role: 'assistant', content });

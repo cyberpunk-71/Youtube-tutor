@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load saved backend URL
   const stored = await chrome.storage.local.get(['lumotutor_server_url']);
-  const serverUrl = stored.lumotutor_server_url || 'http://localhost:3456';
+  const serverUrl = stored.lumotutor_server_url || 'http://100.86.244.6:3456';
   serverInput.value = serverUrl;
 
   async function checkServer(url) {
