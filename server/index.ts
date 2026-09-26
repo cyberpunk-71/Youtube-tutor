@@ -6,6 +6,7 @@ import { CURATED_LIBRARY } from './curatedLibrary';
 import { getVideoMetadata, captureVideoFrame } from './youtubeService';
 import { askTutor } from './tutorService';
 import { analyzeBlackboard } from './blackboardService';
+import { saveToMemryInbox } from './memryService';
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -140,6 +141,29 @@ app.post('/api/tutor/analyze-frame', async (req, res) => {
   } catch (err: any) {
     console.error('Error in blackboard OCR analysis:', err);
     res.status(500).json({ error: err.message || 'Blackboard analysis failed' });
+  }
+});
+
+app.post('/api/memry/save-inbox', async (req, res) => {
+  try {
+    const { title, content, videoTitle, videoId, videoUrl, timestamp, folder, tags } = req.body;
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required to save note' });
+    }
+    const result = await saveToMemryInbox({
+      title,
+      content,
+      videoTitle,
+      videoId,
+      videoUrl,
+      timestamp: Number(timestamp) || 0,
+      folder: folder || '02 - Studies & UPSC',
+      tags
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error saving to MemryNote:', err);
+    res.status(500).json({ error: err.message || 'Failed to save to MemryNote Inbox' });
   }
 });
 

@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { TutorMessage, InteractiveDiagram, QuizQuestion, TutorMode, CanvasNode } from '../src/types/tutor';
 import { findActiveChapter, getLiveSceneState } from '../src/utils/chapterHelper';
+import { saveToMemryInbox } from './memryService';
 
 const execFileAsync = promisify(execFile);
 
@@ -79,6 +80,36 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     frameUrl,
     canvasCoordinates
   } = params;
+
+  // Intercept save to MemryNote / Eva Chief intent
+  const cleanQ = (question || '').trim().toLowerCase();
+  const isSaveIntent = /(?:save|record|put|add).*(?:eva\s*chief|memrynote|memry|inbox|vault)|tell\s*eva\s*chief\s*to\s*save|^save(?:\s*this|\s*it|\s*note)?$/i.test(cleanQ);
+
+  if (isSaveIntent) {
+    const lastAssistantMsg = [...chatHistory].reverse().find(m => m.role === 'assistant');
+    if (lastAssistantMsg && lastAssistantMsg.content) {
+      const saveRes = await saveToMemryInbox({
+        content: lastAssistantMsg.content,
+        videoTitle,
+        videoId,
+        timestamp,
+        folder: '02 - Studies & UPSC',
+        tags: ['lumotutor', 'maths', 'eva-chief', 'study']
+      });
+
+      return {
+        id: `memry-${Date.now()}`,
+        role: 'assistant',
+        timestamp,
+        content: `📥 **Saved to MemryNote Inbox by Eva Chief!**\n\n📌 **Title**: \`${saveRes.title}\`\n📂 **Vault Collection**: \`${saveRes.folder}\`\n🏷️ **Tags**: ${saveRes.tags.map(t => `\`#${t}\``).join(' ')}\n✨ **Status**: Saved to \`.memry/data.db\` and synced to your Chromebook desktop app and mobile.`,
+        suggestedPrompts: [
+          'Explain the next problem on screen',
+          'Test me with a quiz question',
+          'Summarize the key formulas covered so far'
+        ]
+      };
+    }
+  }
 
   const currentMinSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
   const activeChapter = customActiveChapter || findActiveChapter(chapters, timestamp);

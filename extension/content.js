@@ -119,6 +119,7 @@
         <button class="lumotutor-chip" data-prompt="Solve this problem step by step with full calculations">✍️ Step-by-Step</button>
         <button class="lumotutor-chip" data-prompt="What formula or theorem is being applied here?">🔍 What Formula?</button>
         <button class="lumotutor-chip" data-prompt="Quiz me on what was covered up to this point">🎯 Quiz Me</button>
+        <button class="lumotutor-chip lumotutor-chip-save" data-prompt="Tell Eva Chief to save this to MemryNote Inbox">📥 Save to Eva Chief</button>
       </div>
 
       <div class="lumotutor-messages" id="lumotutor-messages">
@@ -134,7 +135,10 @@
           <textarea class="lumotutor-textarea" id="lumo-input" placeholder="Ask about this video frame... (or use 🎙️ / 📸)" rows="1"></textarea>
           <button class="lumotutor-send-btn" id="lumo-send-btn" title="Send (Enter)">➤</button>
         </div>
-        <button class="lumotutor-screen-btn" id="lumo-ask-screen-btn">📸 Ask Current Video Screen</button>
+        <div class="lumotutor-footer-actions">
+          <button class="lumotutor-screen-btn" id="lumo-ask-screen-btn">📸 Ask Current Video Screen</button>
+          <button class="lumotutor-screen-btn lumotutor-save-quick-btn" id="lumo-quick-save-btn" title="Save last explanation to MemryNote Inbox via Eva Chief">📥 Save to MemryNote</button>
+        </div>
       </div>
     `;
 
@@ -405,6 +409,38 @@
         }
       });
     });
+
+    // Quick save button in footer
+    const quickSaveBtn = document.getElementById('lumo-quick-save-btn');
+    quickSaveBtn?.addEventListener('click', () => {
+      submitQuestion('Tell Eva Chief to save this to MemryNote Inbox', false);
+    });
+  }
+
+  // 6b. MemryNote & Eva Chief Save Integration
+  async function callSaveToMemry(payload) {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'SAVE_TO_MEMRY', payload }, (res) => {
+          if (chrome.runtime.lastError) {
+            return reject(new Error(chrome.runtime.lastError.message));
+          }
+          if (res && res.success) {
+            resolve(res.data);
+          } else {
+            reject(new Error(res?.error || 'Failed to save to MemryNote'));
+          }
+        });
+      });
+    } else {
+      const resp = await fetch('http://100.86.244.6:3456/api/memry/save-inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json();
+    }
   }
 
   // 7. Core Ask & Vision Submission
@@ -450,6 +486,53 @@
 
     // Track in history
     chatHistory.push({ role: 'user', content: questionText });
+
+    // Instant intercept if user asks to save to Eva Chief / MemryNote Inbox
+    const cleanQ = (questionText || '').trim().toLowerCase();
+    const isSaveIntent = /(?:save|record|put|add).*(?:eva\s*chief|memrynote|memry|inbox|vault)|tell\s*eva\s*chief\s*to\s*save|^save(?:\s*this|\s*it|\s*note)?$/i.test(cleanQ);
+
+    if (isSaveIntent) {
+      const lastAssistant = [...chatHistory].reverse().find(m => m.role === 'assistant');
+      if (lastAssistant && lastAssistant.content) {
+        loadingDiv.innerHTML = `
+          <div class="lumotutor-spinner"></div>
+          <span>Saving note to MemryNote Inbox via Eva Chief...</span>
+        `;
+        try {
+          const saveRes = await callSaveToMemry({
+            content: lastAssistant.content,
+            videoTitle,
+            videoId: getVideoId(),
+            videoUrl: window.location.href,
+            timestamp,
+            folder: '02 - Studies & UPSC',
+            tags: ['lumotutor', 'maths', 'eva-chief', 'study']
+          });
+          loadingDiv.remove();
+
+          const saveDiv = document.createElement('div');
+          saveDiv.className = 'lumotutor-msg assistant lumotutor-save-confirm';
+          saveDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #4ade80; margin-bottom: 6px;">
+              <span style="font-size: 16px;">📥</span>
+              <span style="font-size: 14px;">Saved to MemryNote Inbox (Eva Chief)</span>
+            </div>
+            <p style="font-size: 13px; margin: 4px 0;"><strong>Title:</strong> ${escapeHtml(saveRes.title)}</p>
+            <p style="font-size: 12px; color: #94a3b8; margin: 2px 0;"><strong>Vault Collection:</strong> <code>${escapeHtml(saveRes.folder || '02 - Studies & UPSC')}</code></p>
+            <p style="font-size: 12px; color: #94a3b8; margin: 2px 0;"><strong>Tags:</strong> ${(saveRes.tags || ['lumotutor', 'maths', 'eva-chief']).map(t => `<span class="lumotutor-tag">#${escapeHtml(t)}</span>`).join(' ')}</p>
+            <div style="margin-top: 8px; padding: 6px 10px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); border-radius: 6px; font-size: 11px; color: #86efac;">
+              ✨ Indexed in <code>.memry/data.db</code> and synced across Tailscale to your Chromebook MemryNote app.
+            </div>
+          `;
+          messages.appendChild(saveDiv);
+          messages.scrollTop = messages.scrollHeight;
+          return;
+        } catch (saveErr) {
+          loadingDiv.remove();
+          // Fall through to standard ask if save call errored
+        }
+      }
+    }
 
     try {
       const payload = {
@@ -549,6 +632,47 @@
 
         assistantDiv.appendChild(quizCard);
       }
+
+      // Action Bar: Save to MemryNote Inbox (Eva Chief)
+      const actionsBar = document.createElement('div');
+      actionsBar.className = 'lumotutor-msg-actions';
+      actionsBar.innerHTML = `
+        <button class="lumotutor-save-memry-btn" title="Save this explanation to MemryNote Inbox (Eva Chief)">
+          <span class="lumotutor-save-icon">📥</span>
+          <span class="lumotutor-save-label">Save to MemryNote Inbox</span>
+        </button>
+      `;
+
+      const saveBtn = actionsBar.querySelector('.lumotutor-save-memry-btn');
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `
+          <span class="lumotutor-spinner" style="width: 12px; height: 12px; border-width: 1.5px; display: inline-block;"></span>
+          <span>Saving to Eva Chief...</span>
+        `;
+        try {
+          const res = await callSaveToMemry({
+            content,
+            videoTitle: getVideoTitle(),
+            videoId: getVideoId(),
+            videoUrl: window.location.href,
+            timestamp: getVideoTimestamp(),
+            folder: '02 - Studies & UPSC',
+            tags: ['lumotutor', 'maths', 'eva-chief', 'study']
+          });
+          if (res && res.success) {
+            saveBtn.classList.add('saved');
+            saveBtn.innerHTML = `<span>✅</span> <span>Saved to MemryNote Inbox</span>`;
+          } else {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<span>❌</span> <span>Save Failed</span>`;
+          }
+        } catch (err) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = `<span>❌</span> <span>Error Saving</span>`;
+        }
+      });
+      assistantDiv.appendChild(actionsBar);
 
       messages.appendChild(assistantDiv);
       messages.scrollTop = messages.scrollHeight;
