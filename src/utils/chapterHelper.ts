@@ -99,9 +99,14 @@ export function getLiveSceneState(
   const activeSpokenLine = activeTranscript?.text || activeChapter?.summary || '';
 
   // 1. Check for explicit fine-grained micro-scenes
+  let matchedScene: any = null;
+  let sceneIdx = 0;
+  let totalSteps = 0;
+
   if (activeChapter?.microScenes && activeChapter.microScenes.length > 0) {
     const sorted = [...activeChapter.microScenes].sort((a, b) => a.startTime - b.startTime);
-    let matchedScene = sorted.find(ms => timestamp >= ms.startTime && timestamp < ms.endTime);
+    totalSteps = sorted.length;
+    matchedScene = sorted.find(ms => timestamp >= ms.startTime && timestamp < ms.endTime);
     
     if (!matchedScene) {
       for (let i = sorted.length - 1; i >= 0; i--) {
@@ -115,33 +120,35 @@ export function getLiveSceneState(
     if (!matchedScene) {
       matchedScene = sorted[0];
     }
-
-    const sceneIdx = sorted.indexOf(matchedScene);
-
-    return {
-      timestamp,
-      timeFormatted,
-      activeChapterTitle,
-      stepTitle: matchedScene.stepTitle,
-      activeSpokenLine,
-      surroundingContext,
-      visibleEquations: matchedScene.equations || [],
-      blackboardNotes: matchedScene.blackboardText,
-      stepNumber: matchedScene.activeStepNumber || (sceneIdx + 1),
-      totalSteps: matchedScene.totalStepsInChapter || sorted.length
-    };
+    sceneIdx = sorted.indexOf(matchedScene);
   }
 
-  // 2. Dynamic Synthesis for chapters without microScenes (arbitrary YouTube videos)
-  // Dynamically filter relevant equations or synthesize step from active speech
-  let dynamicStepTitle = `Lecture Demonstration @ ${timeFormatted}`;
-  let dynamicNotes = activeChapter?.blackboardContent || activeChapter?.summary || 'Interactive lecture discussion and mathematical derivation.';
-  let dynamicEquations = activeChapter?.equations || [];
-
+  // 2. Synthesize dynamic step title and notes that adapt to every 2-3 seconds of speech and blackboard state
+  let dynamicStepTitle = matchedScene?.stepTitle || `Lecture Demonstration @ ${timeFormatted}`;
   if (activeTranscript && activeTranscript.text) {
-    dynamicStepTitle = `Active Focus: "${activeTranscript.text.length > 55 ? activeTranscript.text.substring(0, 52) + '...' : activeTranscript.text}"`;
-    dynamicNotes = `${activeTranscript.text}\n\n${activeChapter?.blackboardContent ? `Chalkboard State: ${activeChapter.blackboardContent}` : ''}`;
+    if (matchedScene?.stepTitle) {
+      dynamicStepTitle = `${matchedScene.stepTitle} (@ ${timeFormatted})`;
+    } else {
+      const shortText = activeTranscript.text.length > 60 ? activeTranscript.text.substring(0, 57) + '...' : activeTranscript.text;
+      dynamicStepTitle = `Active Focus: "${shortText}"`;
+    }
   }
+
+  let dynamicNotes = '';
+  if (matchedScene?.blackboardText) {
+    dynamicNotes = `${matchedScene.blackboardText}`;
+    if (activeTranscript?.text && !matchedScene.blackboardText.includes(activeTranscript.text)) {
+      dynamicNotes = `[Spoken Dialogue @ ${timeFormatted}]: "${activeTranscript.text}"\n\n${matchedScene.blackboardText}`;
+    }
+  } else if (activeTranscript && activeTranscript.text) {
+    dynamicNotes = `[Spoken Dialogue @ ${timeFormatted}]: "${activeTranscript.text}"\n\n${activeChapter?.blackboardContent ? `Chalkboard Content: ${activeChapter.blackboardContent}` : activeChapter?.summary || 'Interactive lecture analysis and worked problem solving.'}`;
+  } else {
+    dynamicNotes = activeChapter?.blackboardContent || activeChapter?.summary || 'Interactive lecture analysis and worked problem solving.';
+  }
+
+  const dynamicEquations = (matchedScene?.equations && matchedScene.equations.length > 0)
+    ? matchedScene.equations
+    : (activeChapter?.equations || []);
 
   return {
     timestamp,
@@ -151,6 +158,8 @@ export function getLiveSceneState(
     activeSpokenLine,
     surroundingContext,
     visibleEquations: dynamicEquations,
-    blackboardNotes: dynamicNotes
+    blackboardNotes: dynamicNotes,
+    stepNumber: matchedScene ? (matchedScene.activeStepNumber || (sceneIdx + 1)) : undefined,
+    totalSteps: matchedScene ? (matchedScene.totalStepsInChapter || totalSteps) : undefined
   };
 }

@@ -61,14 +61,21 @@ export const TutorChat: React.FC<TutorChatProps> = ({
   const recognitionRef = useRef<any>(null);
 
   // Auto-scroll to bottom of chat
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setShowScrollBottom(false);
+  const scrollToBottom = (force: boolean = false) => {
+    if (force || !showScrollBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setShowScrollBottom(false);
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === 'user') {
+      scrollToBottom(true);
+    } else if (!showScrollBottom) {
+      scrollToBottom(false);
+    }
+  }, [messages.length, isLoading]);
 
   // Track scroll position to display floating Scroll-to-Bottom button
   const handleScroll = () => {
@@ -194,7 +201,7 @@ export const TutorChat: React.FC<TutorChatProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden select-none">
+    <div className="flex flex-col h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
       {/* Top Panel Header */}
       <div className="px-3 py-2 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm flex items-center justify-between gap-2 z-30 shrink-0">
         {/* Left: Reorder buttons & Title */}
@@ -298,7 +305,7 @@ export const TutorChat: React.FC<TutorChatProps> = ({
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-3 space-y-3 relative"
+        className="flex-1 overflow-y-auto p-3 space-y-3 relative min-h-0 overscroll-contain"
       >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 space-y-2">

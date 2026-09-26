@@ -655,7 +655,7 @@ export const App: React.FC = () => {
     <div 
       onMouseMove={handleMouseMove}
       onMouseUp={stopResizing}
-      className="h-screen w-screen flex flex-col bg-slate-100 text-slate-900 font-sans antialiased overflow-hidden select-none"
+      className="h-screen w-screen flex flex-col bg-slate-100 text-slate-900 font-sans antialiased overflow-hidden"
     >
       {/* Fixed Height Studio Navigation Bar */}
       <Navbar

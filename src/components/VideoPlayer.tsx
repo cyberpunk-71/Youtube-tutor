@@ -248,7 +248,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden select-none">
+    <div className="flex flex-col h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
       {/* Top Panel Header */}
       <div className="px-3 py-2 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm flex items-center justify-between gap-2 z-30 shrink-0">
         {/* Left: Title & Indicator */}
@@ -290,7 +290,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       </div>
 
       {/* Video Content Body: Fit cleanly in Viewport with independent scroll */}
-      <div className="flex-1 flex flex-col overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 flex flex-col overflow-y-auto p-3 space-y-3 min-h-0 overscroll-contain">
         {/* Main YouTube IFrame Viewport */}
         <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black shadow-md shrink-0">
           <div id={`yt-player-${video.id}`} className="w-full h-full" />

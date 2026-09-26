@@ -31,15 +31,14 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
 // 2. Multimodal Vision & Deep Reasoning: Hermes Antigravity Proxy (Port 8090)
-const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash'];
+const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash'];
 
 // 3. Tertiary Engine: OpenRouter Free Fallback Models
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_MODELS = [
   'google/gemma-4-31b-it:free',
-  'qwen/qwen3.8-27b:free',
-  'liquid/lfm-2.5-2.6b:free'
+  'qwen/qwen3.8-27b:free'
 ];
 
 export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> }> {
@@ -314,7 +313,7 @@ Return your response strictly as a valid JSON object matching this schema:
             messages: multimodalMessages,
             temperature: 0.2
           }),
-          signal: AbortSignal.timeout(20000)
+          signal: AbortSignal.timeout(6000)
         });
 
         if (localResp.ok) {
@@ -351,7 +350,7 @@ Return your response strictly as a valid JSON object matching this schema:
             max_tokens: answerDepth === 'quick' ? 800 : 2048,
             temperature: 0.2
           }),
-          signal: AbortSignal.timeout(10000)
+          signal: AbortSignal.timeout(6000)
         });
 
         if (openRouterResp.ok) {
