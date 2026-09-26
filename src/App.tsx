@@ -510,9 +510,11 @@ export const App: React.FC = () => {
         .map(ch => ch.title) || [];
 
       const nearbyTranscript = currentVideo?.transcript
-        ?.filter(t => t.start <= currentTime + 30 && t.start + (t.duration || 15) >= currentTime - 90)
+        ?.filter(t => t.start <= currentTime + 60 && t.start + (t.duration || 15) >= currentTime - 90)
         .map(t => `[${Math.floor(t.start/60)}:${String(Math.floor(t.start%60)).padStart(2,'0')}] ${t.text}`)
         .join(' ') || '';
+
+      const frameUrl = currentVideo?.thumbnail || (currentVideo?.id ? `https://i.ytimg.com/vi/${currentVideo.id}/hqdefault.jpg` : undefined);
 
       const resp = await fetch('/api/tutor/ask', {
         method: 'POST',
@@ -522,6 +524,8 @@ export const App: React.FC = () => {
           mode: 'sketch',
           answerDepth,
           timestamp: currentTime,
+          videoId: currentVideo?.id,
+          frameUrl,
           videoTitle: currentVideo?.title || 'Lecture',
           channel: currentVideo?.channel || 'Instructor',
           chapters: currentVideo?.chapters || [],
@@ -599,9 +603,11 @@ export const App: React.FC = () => {
         .map(ch => ch.title) || [];
 
       const nearbyTranscript = currentVideo?.transcript
-        ?.filter(t => t.start <= currentTime + 30 && t.start + (t.duration || 15) >= currentTime - 90)
+        ?.filter(t => t.start <= currentTime + 60 && t.start + (t.duration || 15) >= currentTime - 90)
         .map(t => `[${Math.floor(t.start/60)}:${String(Math.floor(t.start%60)).padStart(2,'0')}] ${t.text}`)
         .join(' ') || '';
+
+      const frameUrl = currentVideo?.thumbnail || (currentVideo?.id ? `https://i.ytimg.com/vi/${currentVideo.id}/hqdefault.jpg` : undefined);
 
       const resp = await fetch('/api/tutor/ask', {
         method: 'POST',
@@ -611,6 +617,8 @@ export const App: React.FC = () => {
           mode,
           answerDepth,
           timestamp: currentTime,
+          videoId: currentVideo?.id,
+          frameUrl,
           videoTitle: currentVideo?.title || 'Lecture',
           channel: currentVideo?.channel || 'Instructor',
           chapters: currentVideo?.chapters || [],

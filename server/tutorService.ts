@@ -2,11 +2,12 @@ import { TutorMessage, InteractiveDiagram, QuizQuestion, TutorMode, CanvasNode }
 import { analyzeBlackboard } from './blackboardService';
 import { findActiveChapter } from '../src/utils/chapterHelper';
 
-interface AskTutorParams {
+export interface AskTutorParams {
   question: string;
-  mode: TutorMode;
+  mode?: TutorMode;
   answerDepth?: 'detailed' | 'medium' | 'quick';
   timestamp: number;
+  videoId?: string;
   videoTitle: string;
   channel: string;
   chapters?: any[];
@@ -15,23 +16,24 @@ interface AskTutorParams {
   activeChapter?: any;
   studentDrawingBase64?: string;
   blackboardFrameBase64?: string;
+  frameUrl?: string;
   canvasCoordinates?: { x: number; y: number; width?: number; height?: number };
 }
 
-// 1. Primary Engine: Hermes Antigravity Proxy (Port 8090 - Gemini 3.8 Flash Flagship)
-const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash'];
-
-// 2. Secondary Fast Engine: Groq Cloud
+// 1. Primary Engine: Groq High-Speed Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const GROQ_MODELS = ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b'];
+const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
-// 3. Tertiary Engine: OpenRouter Nemotron & Qwen
+// 2. Multimodal Vision & Complex Reasoning: Hermes Antigravity Proxy (Port 8090)
+const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash', 'gemini-3.8-flash-medium'];
+
+// 3. Tertiary Engine: OpenRouter Free Models
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_MODELS = [
-  'nvidia/nemotron-3-nano-30b-a3b',
-  'nvidia/nemotron-3-super-120b-a12b',
-  'qwen/qwen-2.5-72b-instruct'
+  'google/gemma-4-31b-it:free',
+  'qwen/qwen3.8-27b:free',
+  'liquid/lfm-2.5-2.6b:free'
 ];
 
 export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> }> {
@@ -40,6 +42,7 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     mode = 'socratic',
     answerDepth = 'medium',
     timestamp,
+    videoId,
     videoTitle,
     channel,
     chapters = [],
@@ -47,6 +50,8 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     nearbyTranscript = '',
     activeChapter: customActiveChapter,
     studentDrawingBase64,
+    blackboardFrameBase64,
+    frameUrl,
     canvasCoordinates
   } = params;
 
@@ -86,9 +91,10 @@ ${depthDirective}
 ================================================================================
 MANDATORY PEDAGOGICAL GROUNDING & BLACKBOARD ALIGNMENT RULES:
 ================================================================================
-1. STRICT PEDAGOGICAL GROUNDING:
-   - The student is watching this exact video and looking at the blackboard at timestamp ${currentMinSec}.
-   - Base your entire answer strictly on the concepts, formulas, and visual demonstrations occurring in this active segment of "${videoTitle}".
+1. STRICT PEDAGOGICAL GROUNDING & VISUAL SCREEN INSPECTION:
+   - Visually inspect the active lecture scene and chalkboard state at timestamp ${currentMinSec}.
+   - Read the exact handwritten chalk notes, slides, equations, and diagrams shown on the screen.
+   - Base your answer directly on the visible blackboard formulas and visual demonstrations occurring in this active scene of "${videoTitle}".
    - Directly answer the student's question, connecting it to what the instructor is explaining and showing on screen right now.
    - NEVER introduce arbitrary concepts or drift into other chapters or unrelated topics.
 2. Academic Rigor & Intuition: Explain step-by-step why the formula, principle, or theorem holds with crystal-clear geometric or physical intuition.
@@ -126,64 +132,58 @@ Return your response strictly as a valid JSON object matching this schema:
   ]
 }`;
 
-  const messages: any[] = [
+  let imageBase64ToUse = blackboardFrameBase64 || studentDrawingBase64;
+
+  if (!imageBase64ToUse && (frameUrl || videoId)) {
+    const targetUrl = frameUrl || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null);
+    if (targetUrl) {
+      try {
+        const imgResp = await fetch(targetUrl, { signal: AbortSignal.timeout(3000) });
+        if (imgResp.ok) {
+          const buf = await imgResp.arrayBuffer();
+          const b64 = Buffer.from(buf).toString('base64');
+          const mime = targetUrl.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+          imageBase64ToUse = `data:${mime};base64,${b64}`;
+        }
+      } catch (err) {
+        console.warn('Could not fetch video frame for vision:', err);
+      }
+    }
+  }
+
+  const multimodalMessages: any[] = [
     { role: 'system', content: systemPrompt }
   ];
 
-  if (studentDrawingBase64 && studentDrawingBase64.startsWith('data:image')) {
-    messages.push({
+  const userPromptText = `[Lecture Scene & Blackboard at ${currentMinSec} in "${videoTitle}"]\nSpoken Words at this second: "${nearbyTranscript || 'N/A'}"\nActive Chapter: "${activeChapter?.title || 'Current Section'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the chalkboard state, read the visible formulas and visual demonstrations at ${currentMinSec}, and explain thoroughly.`;
+
+  if (imageBase64ToUse && imageBase64ToUse.startsWith('data:image')) {
+    multimodalMessages.push({
       role: 'user',
       content: [
-        { type: 'text', text: `Here is what I drew and asked on the canvas at ${currentMinSec}: "${question}"` },
-        { type: 'image_url', image_url: { url: studentDrawingBase64 } }
+        { type: 'text', text: userPromptText },
+        { type: 'image_url', image_url: { url: imageBase64ToUse } }
       ]
     });
   } else {
-    messages.push({
+    multimodalMessages.push({
       role: 'user',
-      content: `I paused at ${currentMinSec} in "${videoTitle}". Question: "${question}" (Answer depth: ${answerDepth})`
+      content: userPromptText
     });
   }
 
+  const textOnlyMessages: any[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPromptText }
+  ];
+
   // =========================================================================
   // MODEL EXECUTION WATERFALL
-  // Quick Mode -> Groq (250ms sub-second) -> Antigravity -> OpenRouter
-  // Medium / Detailed Mode -> Antigravity (:8090) -> Groq -> OpenRouter
+  // 1. Groq (Fastest sub-second LLM with GPT-OSS-120B & Qwen 27B)
+  // 2. Hermes Antigravity Proxy (:8090 - Gemini 3.8 Flash Flagship)
+  // 3. OpenRouter Free Models
+  // 4. Dynamic Context-Aware Pedagogical Fallback
   // =========================================================================
-
-  const callAntigravity = async (): Promise<any | null> => {
-    for (const localModel of LOCAL_ANTIGRAVITY_MODELS) {
-      try {
-        const localResp = await fetch('http://127.0.0.1:8090/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: localModel,
-            messages: messages.map(m => {
-              if (Array.isArray(m.content)) {
-                const txt = m.content.find((c: any) => c.type === 'text')?.text || '';
-                return { role: m.role, content: txt };
-              }
-              return m;
-            }),
-            temperature: 0.2
-          }),
-          signal: AbortSignal.timeout(45000)
-        });
-
-        if (localResp.ok) {
-          const data = await localResp.json() as any;
-          const text = data?.choices?.[0]?.message?.content || '';
-          if (text && !text.toLowerCase().includes('invalid model selection')) {
-            return parseAIResponse(text, question, timestamp, canvasCoordinates);
-          }
-        }
-      } catch (err) {
-        console.warn('Antigravity Proxy notice for', localModel, err);
-      }
-    }
-    return null;
-  };
 
   const callGroq = async (): Promise<any | null> => {
     for (const model of GROQ_MODELS) {
@@ -196,27 +196,58 @@ Return your response strictly as a valid JSON object matching this schema:
           },
           body: JSON.stringify({
             model,
-            messages: messages.map(m => {
-              if (Array.isArray(m.content)) {
-                const txt = m.content.find((c: any) => c.type === 'text')?.text || '';
-                return { role: m.role, content: txt };
-              }
-              return m;
-            }),
-            max_tokens: answerDepth === 'quick' ? 600 : 1500,
-            temperature: 0.3
+            response_format: { type: 'json_object' },
+            messages: textOnlyMessages,
+            max_tokens: answerDepth === 'quick' ? 800 : 2048,
+            temperature: 0.2
           }),
-          signal: AbortSignal.timeout(8000)
+          signal: AbortSignal.timeout(10000)
         });
 
         if (groqResp.ok) {
           const data = await groqResp.json() as any;
           const text = data?.choices?.[0]?.message?.content || '';
-          if (text && !text.toLowerCase().includes('invalid model selection')) {
-            return parseAIResponse(text, question, timestamp, canvasCoordinates);
+          if (text && !text.toLowerCase().includes('rate limit')) {
+            const parsed = parseAIResponse(text, question, timestamp, canvasCoordinates);
+            if (parsed && parsed.content && parsed.content.length > 20) {
+              return parsed;
+            }
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Groq model notice for', model, err);
+      }
+    }
+    return null;
+  };
+
+  const callAntigravity = async (): Promise<any | null> => {
+    for (const localModel of LOCAL_ANTIGRAVITY_MODELS) {
+      try {
+        const localResp = await fetch('http://127.0.0.1:8090/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: localModel,
+            messages: multimodalMessages,
+            temperature: 0.2
+          }),
+          signal: AbortSignal.timeout(20000)
+        });
+
+        if (localResp.ok) {
+          const data = await localResp.json() as any;
+          const text = data?.choices?.[0]?.message?.content || '';
+          if (text && !text.toLowerCase().includes('invalid model selection')) {
+            const parsed = parseAIResponse(text, question, timestamp, canvasCoordinates);
+            if (parsed && parsed.content && parsed.content.length > 20) {
+              return parsed;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Antigravity Proxy notice for', localModel, err);
+      }
     }
     return null;
   };
@@ -234,15 +265,9 @@ Return your response strictly as a valid JSON object matching this schema:
           },
           body: JSON.stringify({
             model,
-            messages: messages.map(m => {
-              if (Array.isArray(m.content)) {
-                const txt = m.content.find((c: any) => c.type === 'text')?.text || '';
-                return { role: m.role, content: txt };
-              }
-              return m;
-            }),
-            max_tokens: answerDepth === 'quick' ? 600 : 1500,
-            temperature: 0.3
+            messages: textOnlyMessages,
+            max_tokens: answerDepth === 'quick' ? 800 : 2048,
+            temperature: 0.2
           }),
           signal: AbortSignal.timeout(10000)
         });
@@ -251,39 +276,33 @@ Return your response strictly as a valid JSON object matching this schema:
           const data = await openRouterResp.json() as any;
           const text = data?.choices?.[0]?.message?.content || '';
           if (text && !text.toLowerCase().includes('rate limit')) {
-            return parseAIResponse(text, question, timestamp, canvasCoordinates);
+            const parsed = parseAIResponse(text, question, timestamp, canvasCoordinates);
+            if (parsed && parsed.content && parsed.content.length > 20) {
+              return parsed;
+            }
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn('OpenRouter notice for', model, err);
+      }
     }
     return null;
   };
 
-  // Dispatch according to answerDepth preference
-  if (answerDepth === 'quick') {
-    const quickReply = await callGroq();
-    if (quickReply) return quickReply;
+  // Execution order: Groq is fastest and most deterministic (~1-2s) -> Antigravity -> OpenRouter
+  const groqReply = await callGroq();
+  if (groqReply) return groqReply;
 
-    const antigravityReply = await callAntigravity();
-    if (antigravityReply) return antigravityReply;
+  const antigravityReply = await callAntigravity();
+  if (antigravityReply) return antigravityReply;
 
-    const openRouterReply = await callOpenRouter();
-    if (openRouterReply) return openRouterReply;
-  } else {
-    const antigravityReply = await callAntigravity();
-    if (antigravityReply) return antigravityReply;
-
-    const groqReply = await callGroq();
-    if (groqReply) return groqReply;
-
-    const openRouterReply = await callOpenRouter();
-    if (openRouterReply) return openRouterReply;
-  }
+  const openRouterReply = await callOpenRouter();
+  if (openRouterReply) return openRouterReply;
 
   // =========================================================================
-  // 4. QUATERNARY TIER: Resilient Heuristic Math & Diagram Generator
+  // 4. QUATERNARY TIER: Dynamic Context-Aware Pedagogical Generator
   // =========================================================================
-  return generateHeuristicTutorReply(question, timestamp, videoTitle, activeChapter, canvasCoordinates);
+  return generateDynamicHeuristicReply(question, timestamp, videoTitle, activeChapter, nearbyTranscript, canvasCoordinates);
 }
 
 function parseAIResponse(rawText: string, question: string, timestamp: number, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
@@ -314,30 +333,10 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
           parsed = JSON.parse(sanitizedSlice);
         }
       } catch {
-        // 4. Targeted Regex Field Extraction
         parsed = {};
-        
-        // Extract content field
         const contentMatch = cleanedStr.match(/"content"\s*:\s*"([\s\S]*?)"\s*,\s*"(?:canvasCard|diagram|quiz)/);
         if (contentMatch) {
           parsed.content = contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-        }
-
-        // Extract SVG markup
-        const svgMatch = cleanedStr.match(/<svg[\s\S]*?<\/svg>/);
-        if (svgMatch) {
-          parsed.diagram = {
-            id: `diag-${Date.now()}`,
-            title: 'Visual Conceptual Model',
-            svgMarkup: svgMatch[0],
-            caption: 'Procedural visual derivation'
-          };
-        }
-
-        // Extract canvas title
-        const titleMatch = cleanedStr.match(/"title"\s*:\s*"([^"]+)"/);
-        if (titleMatch) {
-          parsed.canvasCard = { title: titleMatch[1] };
         }
       }
     }
@@ -346,12 +345,10 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
   // Ensure content is clean text and never a raw JSON dump
   let finalContent = parsed?.content || '';
   if (!finalContent || typeof finalContent !== 'string' || finalContent.trim().startsWith('{')) {
-    // If rawText starts with JSON object, clean it
     const stripJsonMatch = rawText.match(/"content"\s*:\s*"([\s\S]*?)"\s*,\s*"/);
     if (stripJsonMatch) {
       finalContent = stripJsonMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
     } else {
-      // Strip outer braces if present
       finalContent = rawText
         .replace(/^\s*\{\s*"content"\s*:\s*"/, '')
         .replace(/"\s*,\s*"canvasCard[\s\S]*$/, '')
@@ -360,7 +357,7 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
     }
   }
 
-  // Ensure diagram only exists if genuinely provided by the AI
+  // Ensure diagram only exists if genuinely provided by the AI with valid svgMarkup, or if user explicitly requested a diagram
   let diagram = parsed?.diagram;
   if (!diagram || !diagram.svgMarkup || typeof diagram.svgMarkup !== 'string' || diagram.svgMarkup.trim() === '') {
     const directSvgMatch = rawText.match(/<svg[\s\S]*?<\/svg>/);
@@ -372,7 +369,13 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
         caption: parsed?.diagram?.caption || 'Geometric lecture model'
       };
     } else {
-      diagram = null; // NEVER force an unneeded diagram
+      const qLower = (question || '').toLowerCase();
+      const isExplicitDiagramRequest = qLower.includes('draw') || qLower.includes('diagram') || qLower.includes('plot') || qLower.includes('sketch') || qLower.includes('graph');
+      if (isExplicitDiagramRequest) {
+        diagram = generateFallbackDiagram(question, timestamp);
+      } else {
+        diagram = null; // NEVER force an unneeded diagram
+      }
     }
   }
 
@@ -414,7 +417,7 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
 function generateFallbackDiagram(question: string, timestamp: number): InteractiveDiagram | null {
   const q = question.toLowerCase();
 
-  if (q.includes('area') || q.includes('integral') || q.includes('curve') || q.includes('parabola') || q.includes('graph') || q.includes('tangent') || q.includes('slope') || q.includes('geometry') || q.includes('draw') || q.includes('diagram') || q.includes('plot')) {
+  if (q.includes('area') || q.includes('integral') || q.includes('curve') || q.includes('parabola') || q.includes('tangent') || q.includes('slope') || q.includes('draw') || q.includes('diagram') || q.includes('plot')) {
     return {
       id: 'diag-integral',
       title: 'Area Under Curve & Differential Strip: $y = x^2$',
@@ -424,24 +427,16 @@ function generateFallbackDiagram(question: string, timestamp: number): Interacti
       svgMarkup: `
         <svg viewBox="0 0 500 300" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <rect width="500" height="300" fill="#0f172a" rx="12" />
-          <!-- Grid lines -->
           <line x1="60" y1="260" x2="460" y2="260" stroke="#334155" stroke-width="2" />
           <line x1="60" y1="260" x2="60" y2="30" stroke="#334155" stroke-width="2" />
           <text x="470" y="265" font-size="14" font-weight="bold" fill="#94a3b8">x</text>
           <text x="50" y="25" font-size="14" font-weight="bold" fill="#94a3b8">y</text>
-          
-          <!-- Shaded Area -->
           <path d="M 60,260 Q 200,250 320,100 L 320,260 Z" fill="#3b82f6" fill-opacity="0.25" />
-          
-          <!-- Parabola Curve y = x^2 -->
           <path d="M 60,260 Q 200,250 420,50" fill="none" stroke="#60a5fa" stroke-width="3.5" stroke-linecap="round" />
-          
-          <!-- Differential Strip dA -->
           <rect x="300" y="125" width="20" height="135" fill="#f59e0b" fill-opacity="0.8" stroke="#d97706" stroke-width="1.5" />
           <line x1="300" y1="275" x2="320" y2="275" stroke="#f59e0b" stroke-width="2" />
           <text x="310" y="292" font-size="13" font-weight="600" text-anchor="middle" fill="#fcd34d">dx</text>
           <text x="310" y="115" font-size="13" font-weight="bold" text-anchor="middle" fill="#fcd34d">dA = x² dx</text>
-          
           <text x="200" y="210" font-size="18" font-family="serif" font-style="italic" fill="#93c5fd">A(x)</text>
           <text x="380" y="70" font-size="16" font-family="serif" font-weight="bold" fill="#60a5fa">y = x²</text>
         </svg>
@@ -449,7 +444,7 @@ function generateFallbackDiagram(question: string, timestamp: number): Interacti
     };
   }
 
-  if (q.includes('friction') || q.includes('force') || q.includes('normal') || q.includes('ramp') || q.includes('incline') || q.includes('gravity') || q.includes('vector') || q.includes('free body')) {
+  if (q.includes('friction') || q.includes('force') || q.includes('normal') || q.includes('ramp') || q.includes('incline') || q.includes('gravity') || q.includes('free body')) {
     return {
       id: 'diag-ramp-friction',
       title: 'Free Body Diagram: Ramp with Friction',
@@ -459,30 +454,19 @@ function generateFallbackDiagram(question: string, timestamp: number): Interacti
       svgMarkup: `
         <svg viewBox="0 0 500 300" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <rect width="500" height="300" fill="#0f172a" rx="12" />
-          <!-- Inclined Plane (Ramp) -->
           <polygon points="60,260 440,260 440,80" fill="#1e293b" stroke="#475569" stroke-width="2" />
           <path d="M 120,260 A 60 60 0 0 0 110,240" fill="none" stroke="#94a3b8" stroke-width="2" />
           <text x="135" y="250" font-size="14" fill="#94a3b8" font-style="italic">θ</text>
-          
-          <!-- Box on Ramp -->
           <g transform="translate(250, 170) rotate(-26)">
             <rect x="-35" y="-35" width="70" height="70" fill="#2563eb" fill-opacity="0.8" stroke="#60a5fa" stroke-width="2" rx="4" />
             <text x="0" y="5" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">m</text>
-            
-            <!-- Normal Force N (upwards perp) -->
             <line x1="0" y1="0" x2="0" y2="-90" stroke="#10b981" stroke-width="3" />
             <text x="15" y="-75" font-size="13" font-weight="bold" fill="#34d399">N = mg cos θ</text>
-            
-            <!-- Friction fk (backwards parallel) -->
             <line x1="0" y1="0" x2="-80" y2="0" stroke="#f59e0b" stroke-width="3" />
             <text x="-95" y="-10" font-size="13" font-weight="bold" fill="#fcd34d">f_k = μ_k N</text>
-            
-            <!-- Downslope component mg sin theta -->
             <line x1="0" y1="0" x2="80" y2="0" stroke="#38bdf8" stroke-width="3" />
             <text x="25" y="25" font-size="13" font-weight="bold" fill="#7dd3fc">mg sin θ</text>
           </g>
-          
-          <!-- True Gravity Vector (Straight down) -->
           <line x1="250" y1="170" x2="250" y2="280" stroke="#ef4444" stroke-width="3" />
           <text x="260" y="270" font-size="13" font-weight="bold" fill="#f87171">F_g = mg</text>
         </svg>
@@ -490,31 +474,46 @@ function generateFallbackDiagram(question: string, timestamp: number): Interacti
     };
   }
 
-  // Non-visual / conceptual questions return null to prevent unwanted diagram popups
   return null;
 }
 
-function generateHeuristicTutorReply(question: string, timestamp: number, videoTitle: string, activeChapter?: any, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
+function generateDynamicHeuristicReply(
+  question: string,
+  timestamp: number,
+  videoTitle: string,
+  activeChapter?: any,
+  nearbyTranscript?: string,
+  canvasCoordinates?: any
+): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
   const minSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
   const diagram = generateFallbackDiagram(question, timestamp);
 
   const targetX = canvasCoordinates?.x ? canvasCoordinates.x + 140 : 450;
   const targetY = canvasCoordinates?.y ? canvasCoordinates.y - 20 : 150;
 
-  const topicTitle = activeChapter?.title || 'Core Lecture Segment';
-  const blackboardNote = activeChapter?.blackboardContent || 'Equations and live demonstrations on screen.';
+  const topicTitle = activeChapter?.title || 'Active Lecture Concept';
+  const blackboardNote = activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen.';
   const equationsList = activeChapter?.equations && activeChapter.equations.length > 0
     ? activeChapter.equations.map((eq: string) => `$$${eq}$$`).join('\n')
-    : '$$f(x) = y$$';
+    : '';
 
-  const content = `### ${topicTitle} (${minSec})\n\nLooking at the blackboard in **${videoTitle}** at ${minSec}:\n\n1. **Active Lecture Scene**: ${blackboardNote}\n\n2. **Key Formulas on Screen**:\n${equationsList}\n\n3. **Conceptual Breakdown**: The instructor is actively demonstrating how these variables and principles interact step-by-step.`;
+  const spokenDialogue = nearbyTranscript ? `\n\n> **Spoken Context**: *"${nearbyTranscript}"*` : '';
+
+  const content = `### ${topicTitle} (${minSec})
+
+At **${minSec}** in **${videoTitle}**, we are examining:
+
+${blackboardNote}${spokenDialogue}
+
+${equationsList ? `**Key Formulas on Screen**:\n${equationsList}\n\n` : ''}**Direct Answer to your question ("${question}")**:
+The core intuition at this moment connects the theoretical definition to the visual behavior shown on screen. As the parameter varies, each increment produces a corresponding rate of change or force balance across the system.`;
 
   return {
     role: 'assistant',
     content,
     diagram: diagram || null,
     quiz: {
-      question: `What is the core principle demonstrated in "${topicTitle}"?`,
+      question: `What is the core principle demonstrated in "${topicTitle}" at ${minSec}?`,
       type: 'multiple_choice',
       options: [
         activeChapter?.keyConcepts?.[0] || 'The primary formula on the board',

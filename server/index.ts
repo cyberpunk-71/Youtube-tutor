@@ -70,6 +70,7 @@ app.post('/api/tutor/ask', async (req, res) => {
       mode,
       answerDepth,
       timestamp,
+      videoId,
       videoTitle,
       channel,
       chapters,
@@ -78,6 +79,7 @@ app.post('/api/tutor/ask', async (req, res) => {
       activeChapter,
       studentDrawingBase64,
       blackboardFrameBase64,
+      frameUrl,
       canvasCoordinates
     } = req.body;
 
@@ -90,6 +92,7 @@ app.post('/api/tutor/ask', async (req, res) => {
       mode: mode || 'socratic',
       answerDepth: answerDepth || 'medium',
       timestamp: Number(timestamp) || 0,
+      videoId,
       videoTitle: videoTitle || 'Lecture Video',
       channel: channel || 'Professor',
       chapters: chapters || [],
@@ -98,6 +101,7 @@ app.post('/api/tutor/ask', async (req, res) => {
       activeChapter: activeChapter || null,
       studentDrawingBase64,
       blackboardFrameBase64,
+      frameUrl,
       canvasCoordinates
     });
 
