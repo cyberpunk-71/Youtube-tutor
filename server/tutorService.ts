@@ -26,12 +26,12 @@ export interface AskTutorParams {
   canvasCoordinates?: { x: number; y: number; width?: number; height?: number };
 }
 
-// 1. Primary Engine: Groq Ultra-Fast Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
+// 1. Primary Vision & Reasoning Engine: Hermes Antigravity Proxy (Port 8090 - Gemini Flash)
+const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-medium', 'gemini-3.8-flash-low', 'gemini-3.8-flash'];
+
+// 2. Fast Text-Only Engine: Groq Ultra-Fast Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
-
-// 2. Multimodal Vision & Deep Reasoning: Hermes Antigravity Proxy (Port 8090)
-const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash'];
 
 // 3. Tertiary Engine: OpenRouter Free Fallback Models
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -73,12 +73,6 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     ? 'ANSWER DEPTH: DETAILED. Provide a comprehensive, rigorous university-level explanation with full step-by-step mathematical proofs, underlying theorems, calculation steps, edge cases, and deep conceptual breakdown.'
     : 'ANSWER DEPTH: MEDIUM. Provide a balanced, clear explanation (2-3 focused paragraphs) highlighting intuition, formula derivation, and connection to the screen.';
 
-  const activeFocusTitle = activeMicroScene?.stepTitle || activeChapter?.title || 'Current Lecture Demonstration';
-  const activeChalkboardNotes = activeMicroScene?.blackboardNotes || activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen';
-  const activeEquations = (activeMicroScene?.equations && activeMicroScene.equations.length > 0)
-    ? activeMicroScene.equations
-    : (activeChapter?.equations || []);
-
   let systemPrompt = '';
 
   if (isQuizMode) {
@@ -90,15 +84,10 @@ The student has watched "${videoTitle}" by ${channel} up to timestamp ${currentM
 ================================================================================
 - Current Watched Position: ${currentMinSec} (${timestamp}s)
 - Active Chapter: "${activeChapter?.title || 'Current Section'}"
-- Active Demonstration at this second: "${activeFocusTitle}"
-- Chalkboard Equations & Notes at this second:
-  ${activeChalkboardNotes}
-- Visible Formulas on Screen:
-  ${activeEquations.length > 0 ? activeEquations.join(', ') : 'None'}
+- Spoken Dialogue around this second:
+  "${nearbyTranscript || 'N/A'}"
 - Topics Covered SO FAR from 0:00 to ${currentMinSec}:
   ${coveredHistory.length > 0 ? coveredHistory.join(' -> ') : (activeChapter?.title || 'Introduction')}
-- Spoken Dialogue at this second:
-  "${nearbyTranscript || activeMicroScene?.activeSpokenLine || activeChapter?.summary || 'N/A'}"
 
 ================================================================================
 MANDATORY QUIZ RULES:
@@ -106,17 +95,20 @@ MANDATORY QUIZ RULES:
 1. STRICT TIME BOUNDARY (NO SPOILERS / NO FUTURE TOPICS):
    - ONLY test the student on concepts, equations, calculations, and ideas presented between 0:00 and ${currentMinSec}.
    - NEVER ask about topics, chapters, formulas, or theorems that occur AFTER ${currentMinSec} in this video.
-2. HIGH-YIELD MULTIPLE CHOICE QUIZ:
-   - Create a sharp, engaging multiple-choice question in the "quiz" field based on the active scene and watched material.
+2. LIVE SCREENSHOT GROUNDING:
+   - If a live video screenshot is provided, read the exact problem, formulas, and calculations directly from the screenshot!
+   - DO NOT invent or assume pre-canned examples.
+3. HIGH-YIELD MULTIPLE CHOICE QUIZ:
+   - Create a sharp, engaging multiple-choice question in the "quiz" field based strictly on what is visible on screen or spoken in the lecture.
    - Provide exactly 4 options in "options" (Option A, B, C, D) with LaTeX math where appropriate.
    - Set "correctAnswerIndex" (0, 1, 2, or 3).
-   - Provide a clear, educational "explanation" explaining why the correct choice is true and clarifying any common mistakes.
+   - Provide a clear, educational "explanation" explaining why the correct choice is true.
    - Set "targetedConcept" to the specific principle tested.
-3. IN-CHAT TEXT ("content"):
-   - Write a concise, friendly introductory message (e.g. "Here is a quick quiz to check your understanding of what was covered up to **${currentMinSec}** in *${videoTitle}*:") and summarize what the question tests.
-4. DIAGRAM:
+4. IN-CHAT TEXT ("content"):
+   - Write a concise, friendly introductory message and summarize what the question tests.
+5. DIAGRAM:
    - Set "diagram": null.
-5. FOLLOW-UP PROMPTS:
+6. FOLLOW-UP PROMPTS:
    - Provide 2 relevant follow-up questions in "suggestedPrompts".
 
 Return strictly a valid JSON object matching this schema:
@@ -141,18 +133,13 @@ Return strictly a valid JSON object matching this schema:
 You are tutoring a student watching "${videoTitle}" by ${channel}.
 
 ================================================================================
-🚨 CURRENT VIDEO SCREEN, BLACKBOARD & TIMELINE STATE AT ${currentMinSec} (${timestamp}s)
+🚨 CURRENT VIDEO SCREEN & TIMELINE STATE AT ${currentMinSec} (${timestamp}s)
 ================================================================================
 - Video Title: "${videoTitle}" (${channel})
 - Paused Timestamp: ${currentMinSec} (${timestamp}s)
 - Current Lecture Chapter: "${activeChapter?.title || 'Current Section'}"
-- ACTIVE ON-SCREEN DEMONSTRATION & STEP: "${activeFocusTitle}"
-- ON-SCREEN BLACKBOARD CHALK NOTES & ARITHMETIC AT THIS SECOND:
-  ${activeChalkboardNotes}
-- VISIBLE FORMULAS & NUMBERS ON SCREEN RIGHT NOW:
-  ${activeEquations.length > 0 ? activeEquations.join(', ') : 'None'}
-- PROFESSOR'S SPOKEN WORDS AT THIS MOMENT:
-  "${nearbyTranscript || activeMicroScene?.activeSpokenLine || activeChapter?.summary || 'N/A'}"
+- PROFESSOR'S SPOKEN WORDS AT THIS SECOND:
+  "${nearbyTranscript || 'N/A'}"
 - PRECEDING TOPICS IN THIS LECTURE:
   ${coveredHistory.join(' -> ') || 'Beginning of lecture'}
 
@@ -160,25 +147,21 @@ Student's Interaction Mode: "explain"
 ${depthDirective}
 
 ================================================================================
-MANDATORY MULTI-TURN CONVERSATION & SCREEN-AWARE GROUNDING RULES:
+MANDATORY LIVE SCREEN & MULTI-TURN GROUNDING RULES:
 ================================================================================
-1. MULTI-TURN CONVERSATION MEMORY & ZERO REPETITION:
-   - Carefully inspect the previous chat conversation messages.
-   - If the student is asking a follow-up question (e.g. "why did we divide by 10?", "what is step 2?", "explain without calculus", "what about x_2?"), BUILD DIRECTLY ON WHAT WAS ALREADY DISCUSSED.
-   - NEVER repeat the same greeting, introductory summary, or canned boilerplate across turns.
-   - Directly address the exact question or calculation the student just asked about.
-2. PRECISE VISUAL SCREEN & CALCULATION GROUNDING:
-   - Read the exact handwritten chalk notes, slides, equations, and numbers visible at ${currentMinSec}.
-   - Follow the exact arithmetic steps shown on screen for any live worked problem.
-   - If the student asks about a specific step, explain the math directly.
-3. ACADEMIC RIGOR & GEOMETRIC INTUITION:
-   - Explain why the principle holds with geometric or physical clarity.
-4. CLEAN MATH FORMATTING:
-   - Use standard LaTeX with $...$ for inline math (e.g. $f'(x) = 3x^2 - 2$, $x_{n+1} = x_n - \\frac{f(x_n)}{f'(x_n)}$).
+1. STRICT LIVE SCREENSHOT GROUNDING (NO PRE-CLASSIFIED PRENOTES):
+   - If an image or screenshot is attached, READ THE SCREEN ON THE GO!
+   - Transcribe and inspect the EXACT handwritten notes, formulas, equations, problem statements, numbers, and arithmetic steps visible on this screen right now.
+   - DO NOT assume or regurgitate pre-canned examples (like generic Example 1, or relative error formulas) unless they are ACTUALLY visible on the screen or in the spoken transcript.
+   - If the professor is solving a specific worked problem on the screen, follow and explain THEIR exact steps and numbers.
+2. MULTI-TURN CONVERSATION MEMORY:
+   - Inspect previous chat turns. If the student is asking a follow-up, build directly on what was discussed without repetitive introductions.
+3. CLEAN MATH FORMATTING:
+   - Use standard LaTeX with $...$ for inline math (e.g. $f'(x) = 3x^2 - 2$).
    - Use $$...$$ on their own lines for display block equations.
-5. DIAGRAM DIRECTIVE:
-   - Set "diagram": null unless the student explicitly asks for an SVG drawing/plot/sketch.
-6. COMPREHENSION QUIZ & SUGGESTED FOLLOW-UP PROMPTS:
+4. DIAGRAM DIRECTIVE:
+   - Set "diagram": null unless the student explicitly asks for an SVG drawing/plot.
+5. COMPREHENSION QUIZ & FOLLOW-UP PROMPTS:
    - Include a comprehension quiz question in "quiz" checking the concept just explained.
    - Provide 2-3 natural follow-up questions in "suggestedPrompts".
 
@@ -229,15 +212,17 @@ Return your response strictly as a valid JSON object matching this schema:
     }));
 
   const userPromptText = isQuizMode
-    ? `[Quiz Request at ${currentMinSec} in "${videoTitle}"]\nActive Step: "${activeFocusTitle}"\nTopics covered so far: ${coveredHistory.join(' -> ') || activeChapter?.title || 'Lecture'}\nPlease generate an interactive multiple choice quiz testing only what was watched up to ${currentMinSec}.`
-    : `[Lecture Scene & Blackboard at ${currentMinSec} in "${videoTitle}"]\nActive Step / Focus: "${activeFocusTitle}"\nVisible Formulas on Screen: ${activeEquations.join(', ') || 'None'}\nChalkboard Notes at this second:\n${activeChalkboardNotes}\nSpoken Words at this second: "${nearbyTranscript || activeMicroScene?.activeSpokenLine || 'N/A'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the active chalkboard step and arithmetic at ${currentMinSec}, consider our prior conversation, and answer directly.`;
+    ? `[Quiz Request at ${currentMinSec} in "${videoTitle}"]\nTopics covered so far: ${coveredHistory.join(' -> ') || activeChapter?.title || 'Lecture'}\nSpoken Words: "${nearbyTranscript || 'N/A'}"\nPlease inspect the screen and dialogue at ${currentMinSec}, and generate an interactive multiple choice quiz testing only what was watched up to ${currentMinSec}.`
+    : `[Lecture Screen at ${currentMinSec} in "${videoTitle}"]\nSpoken Words at this second: "${nearbyTranscript || 'N/A'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the live lecture screen and spoken dialogue at ${currentMinSec}, consider our prior conversation, and answer directly based on what is shown and spoken.`;
 
   const multimodalMessages: any[] = [
     { role: 'system', content: systemPrompt },
     ...chatHistoryMessages
   ];
 
-  if (imageBase64ToUse && imageBase64ToUse.startsWith('data:image')) {
+  const hasLiveImage = Boolean(imageBase64ToUse && imageBase64ToUse.startsWith('data:image'));
+
+  if (hasLiveImage) {
     multimodalMessages.push({
       role: 'user',
       content: [
@@ -370,18 +355,29 @@ Return your response strictly as a valid JSON object matching this schema:
     return null;
   };
 
-  // Execution order: Groq is fastest and most deterministic (~1-2s) -> Antigravity -> OpenRouter
+  // Execution order:
+  // 1. If user provided a live screenshot or image, prioritize Antigravity Gemini Flash Vision!
+  if (hasLiveImage) {
+    const visionReply = await callAntigravity();
+    if (visionReply) return visionReply;
+  }
+
+  // 2. High-speed Groq LLM (GPT-OSS-120B / Qwen 27B)
   const groqReply = await callGroq();
   if (groqReply) return groqReply;
 
-  const antigravityReply = await callAntigravity();
-  if (antigravityReply) return antigravityReply;
+  // 3. Antigravity fallback if not already tried
+  if (!hasLiveImage) {
+    const antigravityReply = await callAntigravity();
+    if (antigravityReply) return antigravityReply;
+  }
 
+  // 4. OpenRouter Free Models fallback
   const openRouterReply = await callOpenRouter();
   if (openRouterReply) return openRouterReply;
 
-  // Dynamic Context-Aware Fallback (No hardcoded diagrams or static canned answers)
-  return generateDynamicHeuristicReply(question, timestamp, videoTitle, activeChapter, nearbyTranscript, isQuizMode, activeMicroScene);
+  // 5. Dynamic Context-Aware Fallback (No hardcoded diagrams or static canned answers)
+  return generateDynamicHeuristicReply(question, timestamp, videoTitle, activeChapter, nearbyTranscript, isQuizMode);
 }
 
 function parseAIResponse(rawText: string, question: string, timestamp: number, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
@@ -471,20 +467,11 @@ function generateDynamicHeuristicReply(
   videoTitle: string,
   activeChapter?: any,
   nearbyTranscript?: string,
-  isQuizMode: boolean = false,
-  activeMicroScene?: any
+  isQuizMode: boolean = false
 ): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
   const minSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
-  const topicTitle = activeMicroScene?.stepTitle || activeChapter?.title || 'Active Lecture Concept';
-  const blackboardNote = activeMicroScene?.blackboardNotes || activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen.';
-  const equationsToUse = (activeMicroScene?.equations && activeMicroScene.equations.length > 0)
-    ? activeMicroScene.equations
-    : (activeChapter?.equations || []);
-  const equationsList = equationsToUse.length > 0
-    ? equationsToUse.map((eq: string) => `$$${eq}$$`).join('\n')
-    : '';
-
-  const spokenDialogue = nearbyTranscript ? `\n\n> **Spoken Context**: *"${nearbyTranscript}"*` : '';
+  const topicTitle = activeChapter?.title || 'Active Lecture Concept';
+  const spokenDialogue = nearbyTranscript ? `\n\n> **Spoken Context @ ${minSec}**: *"${nearbyTranscript}"*` : '';
 
   if (isQuizMode) {
     return {
@@ -492,21 +479,21 @@ function generateDynamicHeuristicReply(
       content: `### Knowledge Check @ ${minSec}\n\nHere is a quick question to check your understanding of what has been covered up to **${minSec}** in **${videoTitle}**:`,
       diagram: null,
       quiz: {
-        question: `In "${topicTitle}" (at ${minSec}), what is the primary relationship demonstrated on screen?`,
+        question: `In "${topicTitle}" (at ${minSec}), what is the primary concept being discussed?`,
         type: 'multiple_choice',
         options: [
-          activeChapter?.keyConcepts?.[0] || 'The core mathematical formula shown on the board',
-          'Unrelated subsequent chapter topic',
+          activeChapter?.keyConcepts?.[0] || 'The core mathematical concept from this lecture section',
+          'Subsequent section material',
           'A trivial algebraic identity',
-          'Arbitrary unit scaling'
+          'Arbitrary unit conversion'
         ],
         correctAnswerIndex: 0,
-        explanation: `At ${minSec}, the lecture directly focuses on ${activeChapter?.keyConcepts?.[0] || topicTitle}.`,
+        explanation: `At ${minSec}, the lecture focuses on ${activeChapter?.keyConcepts?.[0] || topicTitle}.`,
         targetedConcept: topicTitle
       },
       suggestedPrompts: [
-        'Why is this the primary formula used here?',
-        'How does this lead to the next step?'
+        'Can you explain this step in more detail?',
+        'How does this relate to the previous step?'
       ],
       timestamp
     };
@@ -514,33 +501,32 @@ function generateDynamicHeuristicReply(
 
   const content = `### ${topicTitle} (${minSec})
 
-At **${minSec}** in **${videoTitle}**, we are examining:
+At **${minSec}** in **${videoTitle}**:
+${spokenDialogue}
 
-${blackboardNote}${spokenDialogue}
-
-${equationsList ? `**Key Formulas on Screen**:\n${equationsList}\n\n` : ''}**Direct Answer to your question ("${question}")**:
-The mathematical principle connects the theoretical definition directly to the visual demonstration shown on the board. As we follow the steps at ${minSec}, the calculations advance systematically.`;
+**Direct Answer to your question ("${question}")**:
+Based on the lecture at ${minSec}, let's examine what the professor is presenting. If you'd like me to read the exact chalk equations, click **Capture Screen** or paste a screenshot directly into chat, and I will analyze the handwriting on the fly!`;
 
   return {
     role: 'assistant',
     content,
     diagram: null,
     quiz: {
-      question: `What is the core principle demonstrated in "${topicTitle}" at ${minSec}?`,
+      question: `What is the core principle explored in "${topicTitle}" at ${minSec}?`,
       type: 'multiple_choice',
       options: [
-        activeChapter?.keyConcepts?.[0] || 'The primary formula on the board',
-        'Unrelated background setup',
-        'Standard unit conversion',
-        'Alternative notation definition'
+        activeChapter?.keyConcepts?.[0] || 'The core principle demonstrated on screen',
+        'Unrelated preliminary note',
+        'Standard constant factor',
+        'Alternative unit system'
       ],
       correctAnswerIndex: 0,
-      explanation: `At ${minSec}, the focus is directly on ${activeChapter?.keyConcepts?.[0] || topicTitle}.`,
+      explanation: `At ${minSec}, the focus is on ${activeChapter?.keyConcepts?.[0] || topicTitle}.`,
       targetedConcept: topicTitle
     },
     suggestedPrompts: [
       `Can you break down the next calculation step?`,
-      `Why is this equation used at ${minSec}?`
+      `Why is this approach taken at ${minSec}?`
     ],
     timestamp
   };

@@ -415,8 +415,8 @@ export const App: React.FC = () => {
     savePlaybackState(currentVideo, seconds);
   };
 
-  // Send Chat Message with Full Conversation History & Video Context
-  const handleSendMessage = async (text: string, mode: TutorMode) => {
+  // Send Chat Message with Full Conversation History & Live Video Screen Context
+  const handleSendMessage = async (text: string, mode: TutorMode, imageBase64?: string | null) => {
     const userMsg: TutorMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
@@ -434,7 +434,6 @@ export const App: React.FC = () => {
 
     try {
       const activeChapter = findActiveChapter(currentVideo?.chapters, currentTime);
-      const activeMicroScene = getLiveSceneState(currentVideo?.chapters, currentVideo?.transcript, currentTime);
 
       const coveredChapters = currentVideo?.chapters
         ?.filter(ch => ch.startTime <= currentTime)
@@ -461,6 +460,7 @@ export const App: React.FC = () => {
           answerDepth,
           timestamp: currentTime,
           videoId: currentVideo?.id,
+          blackboardFrameBase64: imageBase64 || undefined,
           frameUrl,
           videoTitle: currentVideo?.title || 'Lecture',
           channel: currentVideo?.channel || 'Instructor',
@@ -468,7 +468,6 @@ export const App: React.FC = () => {
           coveredHistory: coveredChapters,
           nearbyTranscript,
           activeChapter,
-          activeMicroScene,
           chatHistory: chatHistoryForBackend
         })
       });
