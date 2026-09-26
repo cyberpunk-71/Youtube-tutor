@@ -54,36 +54,77 @@ export const TutorChat: React.FC<TutorChatProps> = ({
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState<string | null>(null);
-  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Auto-scroll to bottom of chat
-  const scrollToBottom = (force: boolean = false) => {
-    if (force || !showScrollBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      setShowScrollBottom(false);
-    }
+  // --- Scroll mechanism (ref-based, no stale closures) ---
+  const userScrolledUpRef = useRef(false);
+  const scrollLockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevMsgCountRef = useRef(messages.length);
+
+  const doScrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Only auto-scroll when a genuinely NEW message is added and user hasn't scrolled up
   useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.role === 'user') {
-      scrollToBottom(true);
-    } else if (!showScrollBottom) {
-      scrollToBottom(false);
-    }
-  }, [messages.length, isLoading]);
+    const prevCount = prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
 
-  // Track scroll position to display floating Scroll-to-Bottom button
+    // No new message added — do nothing (this ignores isLoading flips, re-renders, etc.)
+    if (messages.length <= prevCount) return;
+
+    const lastMsg = messages[messages.length - 1];
+
+    // User just sent a message — always scroll to see it
+    if (lastMsg?.role === 'user') {
+      userScrolledUpRef.current = false;
+      setShowScrollBtn(false);
+      doScrollToBottom();
+      return;
+    }
+
+    // AI response arrived — only scroll if user hasn't scrolled up
+    if (!userScrolledUpRef.current) {
+      doScrollToBottom();
+    }
+  }, [messages.length]);
+
+  // Detect manual scroll: if user scrolls UP, lock auto-scroll for 4 seconds
   const handleScroll = () => {
-    if (!scrollContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    const isUp = scrollHeight - scrollTop - clientHeight > 120;
-    setShowScrollBottom(isUp);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const isUp = distFromBottom > 100;
+    setShowScrollBtn(isUp);
+
+    if (isUp) {
+      userScrolledUpRef.current = true;
+      // Clear any existing unlock timer
+      if (scrollLockTimerRef.current) clearTimeout(scrollLockTimerRef.current);
+      // Auto-unlock after 4 seconds of no scroll activity so new messages will auto-scroll again
+      scrollLockTimerRef.current = setTimeout(() => {
+        userScrolledUpRef.current = false;
+      }, 4000);
+    } else {
+      // User scrolled back to bottom — unlock immediately
+      userScrolledUpRef.current = false;
+      if (scrollLockTimerRef.current) {
+        clearTimeout(scrollLockTimerRef.current);
+        scrollLockTimerRef.current = null;
+      }
+    }
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollLockTimerRef.current) clearTimeout(scrollLockTimerRef.current);
+    };
+  }, []);
 
   // Speech Recognition for Voice Input
   useEffect(() => {
@@ -201,7 +242,7 @@ export const TutorChat: React.FC<TutorChatProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+    <div className="flex flex-col h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden relative">
       {/* Top Panel Header */}
       <div className="px-3 py-2 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm flex items-center justify-between gap-2 z-30 shrink-0">
         {/* Left: Reorder buttons & Title */}
@@ -436,9 +477,13 @@ export const TutorChat: React.FC<TutorChatProps> = ({
       </div>
 
       {/* Floating Scroll to Bottom Button */}
-      {showScrollBottom && (
+      {showScrollBtn && (
         <button
-          onClick={scrollToBottom}
+          onClick={() => {
+            userScrolledUpRef.current = false;
+            setShowScrollBtn(false);
+            doScrollToBottom();
+          }}
           className="absolute bottom-20 right-6 z-30 p-2 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-all animate-in fade-in"
           title="Scroll to latest message"
         >
