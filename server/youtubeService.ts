@@ -366,76 +366,86 @@ Return pure JSON matching this schema:
     return chapters.length > 0;
   };
 
-  // 1. Tier 1: Local Antigravity Gemini Proxy (:8090)
-  try {
-    const localResp = await fetch('http://127.0.0.1:8090/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gemini-3.8-flash',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2
-      })
-    });
-    if (localResp.ok) {
-      const aiData = await localResp.json() as any;
-      const text = aiData?.choices?.[0]?.message?.content || '';
-      tryParseSyllabus(text);
-    }
-  } catch (err) {
-    console.warn('Antigravity Proxy syllabus synthesis failed, trying fallback:', err);
-  }
-
-  // 2. Tier 2: OpenRouter Qwen 72B (High Precision Fallback)
-  if (chapters.length === 0) {
-    try {
-      const openRouterResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://mytutor.local'
-        },
-        body: JSON.stringify({
-          model: 'qwen/qwen-2.5-72b-instruct',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          max_tokens: 3500
-        })
-      });
-      if (openRouterResp.ok) {
-        const oData = await openRouterResp.json() as any;
-        const text = oData?.choices?.[0]?.message?.content || '';
-        tryParseSyllabus(text);
+  // 1. Tier 1: Groq Fast High-Precision LLM (GPT-OSS-120B / Qwen 27B in ~1.5s)
+  if (GROQ_API_KEY) {
+    for (const model of ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b']) {
+      try {
+        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            response_format: { type: 'json_object' },
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.2,
+            max_tokens: 3000
+          }),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (groqResp.ok) {
+          const gData = await groqResp.json() as any;
+          const text = gData?.choices?.[0]?.message?.content || '';
+          if (tryParseSyllabus(text)) break;
+        }
+      } catch (err) {
+        console.warn('Groq syllabus synthesis notice for', model, err);
       }
-    } catch (err) {
-      console.warn('OpenRouter syllabus synthesis failed, trying Groq:', err);
     }
   }
 
-  // 3. Tier 3: Groq Fast Fallback
+  // 2. Tier 2: Local Antigravity Gemini Proxy (:8090)
   if (chapters.length === 0) {
     try {
-      const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const localResp = await fetch('http://127.0.0.1:8090/v1/chat/completions', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'qwen/qwen3.8-27b',
+          model: 'gemini-3.8-flash',
           messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          max_tokens: 3000
-        })
+          temperature: 0.2
+        }),
+        signal: AbortSignal.timeout(20000)
       });
-      if (groqResp.ok) {
-        const gData = await groqResp.json() as any;
-        const text = gData?.choices?.[0]?.message?.content || '';
+      if (localResp.ok) {
+        const aiData = await localResp.json() as any;
+        const text = aiData?.choices?.[0]?.message?.content || '';
         tryParseSyllabus(text);
       }
     } catch (err) {
-      console.warn('Groq syllabus synthesis failed:', err);
+      console.warn('Antigravity Proxy syllabus synthesis failed:', err);
+    }
+  }
+
+  // 3. Tier 3: OpenRouter Free Models
+  if (chapters.length === 0 && OPENROUTER_API_KEY) {
+    for (const model of ['google/gemma-4-31b-it:free', 'qwen/qwen3.8-27b:free']) {
+      try {
+        const openRouterResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://mytutor.local'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.2,
+            max_tokens: 3000
+          }),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (openRouterResp.ok) {
+          const oData = await openRouterResp.json() as any;
+          const text = oData?.choices?.[0]?.message?.content || '';
+          if (tryParseSyllabus(text)) break;
+        }
+      } catch (err) {
+        console.warn('OpenRouter syllabus synthesis notice for', model, err);
+      }
     }
   }
 

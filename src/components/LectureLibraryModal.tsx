@@ -23,6 +23,7 @@ export const LectureLibraryModal: React.FC<LectureLibraryModalProps> = ({
 
   const categories = [
     { id: 'all', label: 'All Subjects' },
+    { id: 'numerical', label: 'Numerical Analysis' },
     { id: 'calculus', label: 'Calculus & Math' },
     { id: 'physics', label: 'Physics' },
     { id: 'chemistry', label: 'Chemistry' },
@@ -37,6 +38,7 @@ export const LectureLibraryModal: React.FC<LectureLibraryModalProps> = ({
 
   const filtered = library.filter((v) => {
     if (selectedCategory === 'all') return true;
+    if (selectedCategory === 'numerical') return v.title.toLowerCase().includes('numerical') || v.title.toLowerCase().includes('newton') || v.title.toLowerCase().includes('bisection');
     if (selectedCategory === 'calculus') return v.title.toLowerCase().includes('calculus') || v.title.toLowerCase().includes('linear');
     if (selectedCategory === 'physics') return v.title.toLowerCase().includes('physics') || v.title.toLowerCase().includes('friction');
     if (selectedCategory === 'chemistry') return v.title.toLowerCase().includes('chem') || v.title.toLowerCase().includes('vsepr');

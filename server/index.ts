@@ -21,10 +21,18 @@ if (!fs.existsSync(framesDir)) {
 }
 app.use('/captured_frames', express.static(framesDir));
 
-// Serve production frontend bundle
+// Serve production frontend bundle with no-cache headers for HTML
 const distDir = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir));
+  app.use(express.static(distDir, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    }
+  }));
 }
 
 app.get('/api/health', (req, res) => {
@@ -152,6 +160,9 @@ app.post('/api/tutor/check-drawing', async (req, res) => {
 app.use((req, res) => {
   const indexPath = path.join(distDir, 'index.html');
   if (fs.existsSync(indexPath)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(indexPath);
   } else {
     res.send('My Tutor backend is active. Run `bun run build` or start Vite dev server.');
