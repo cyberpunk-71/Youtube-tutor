@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "LumoTutor AI - YouTube Floating Screen Assistant",
+  "version": "1.0.0",
+  "description": "Floating AI tutor overlay for YouTube. Reads your video screen, takes voice input, and explains formulas & problems on the fly.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "http://localhost:3456/*",
+    "http://127.0.0.1:3456/*",
+    "http://100.86.244.6:3456/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LumoTutor Settings & Status"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

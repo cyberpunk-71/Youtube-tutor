@@ -27,7 +27,7 @@ export interface AskTutorParams {
 }
 
 // 1. Primary Vision & Reasoning Engine: Hermes Antigravity Proxy (Port 8090 - Gemini Flash)
-const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-medium', 'gemini-3.8-flash-low', 'gemini-3.8-flash'];
+const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-low', 'gemini-3.8-flash', 'gemini-3.8-flash-medium'];
 
 // 2. Fast Text-Only Engine: Groq Ultra-Fast Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
@@ -322,13 +322,17 @@ Return your response strictly as a valid JSON object matching this schema:
             messages: multimodalMessages,
             temperature: 0.2
           }),
-          signal: AbortSignal.timeout(6000)
+          signal: AbortSignal.timeout(25000)
         });
 
         if (localResp.ok) {
           const data = await localResp.json() as any;
           const text = data?.choices?.[0]?.message?.content || '';
-          if (text && !text.toLowerCase().includes('invalid model selection')) {
+          if (text &&
+              !text.toLowerCase().includes('invalid model') &&
+              !text.toLowerCase().includes('authentication failed') &&
+              !text.toLowerCase().includes('timed out') &&
+              !text.toLowerCase().includes('rate limit')) {
             const parsed = parseAIResponse(text, question, timestamp, canvasCoordinates);
             if (parsed && parsed.content && parsed.content.length > 20) {
               return parsed;

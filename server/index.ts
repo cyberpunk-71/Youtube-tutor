@@ -71,7 +71,7 @@ app.post('/api/video/frame', async (req, res) => {
   }
 });
 
-app.post('/api/tutor/ask', async (req, res) => {
+app.post(['/api/tutor/ask', '/api/tutor/vision-ask'], async (req, res) => {
   try {
     const {
       question,
@@ -89,30 +89,32 @@ app.post('/api/tutor/ask', async (req, res) => {
       chatHistory,
       studentDrawingBase64,
       blackboardFrameBase64,
+      screenshotBase64,
       frameUrl,
       canvasCoordinates
     } = req.body;
 
-    if (!question && !studentDrawingBase64) {
-      return res.status(400).json({ error: 'Question or drawing is required' });
+    const imageToUse = screenshotBase64 || blackboardFrameBase64 || studentDrawingBase64;
+
+    if (!question && !imageToUse) {
+      return res.status(400).json({ error: 'Question or screenshot is required' });
     }
 
     const reply = await askTutor({
-      question: question || 'Explain my drawing and whether my solution is correct',
+      question: question || 'Explain what is shown on this video frame and solve the visible problem step by step.',
       mode: mode || 'explain',
-      answerDepth: answerDepth || 'medium',
+      answerDepth: answerDepth || 'detailed',
       timestamp: Number(timestamp) || 0,
       videoId,
-      videoTitle: videoTitle || 'Lecture Video',
-      channel: channel || 'Professor',
+      videoTitle: videoTitle || 'YouTube Lecture',
+      channel: channel || 'Instructor',
       chapters: chapters || [],
       coveredHistory: coveredHistory || [],
       nearbyTranscript: nearbyTranscript || '',
       activeChapter: activeChapter || null,
       activeMicroScene: activeMicroScene || null,
       chatHistory: Array.isArray(chatHistory) ? chatHistory : [],
-      studentDrawingBase64,
-      blackboardFrameBase64,
+      blackboardFrameBase64: imageToUse,
       frameUrl,
       canvasCoordinates
     });

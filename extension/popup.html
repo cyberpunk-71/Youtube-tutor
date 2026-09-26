@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LumoTutor AI Settings</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 16px;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .header h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #818cf8;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      margin-bottom: 12px;
+      background: #1e293b;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+    .status-dot.online { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .status-dot.offline { background: #ef4444; }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #94a3b8;
+      font-size: 12px;
+    }
+    input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    button {
+      width: 100%;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 12px;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    .tip {
+      margin-top: 14px;
+      padding: 10px;
+      background: #1e1b4b;
+      border: 1px solid #3730a3;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #c7d2fe;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span style="font-size: 20px;">🎓</span>
+    <h2>LumoTutor YouTube Assistant</h2>
+  </div>
+
+  <div class="status-badge">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Checking backend...</span>
+  </div>
+
+  <label for="server-url">Backend Server Endpoint:</label>
+  <input type="text" id="server-url" value="http://localhost:3456">
+
+  <button id="save-btn">Save & Test Connection</button>
+
+  <div class="tip">
+    💡 <strong>How to use:</strong> Open any YouTube video. The floating 🎓 tutor pill appears on your video page. Drag it anywhere or click <strong>Ask Screen</strong> / 🎙️ mic to read the video screen and answer!
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

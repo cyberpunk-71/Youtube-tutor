@@ -1,0 +1,477 @@
+/* LumoTutor YouTube Floating Overlay Styles */
+
+:root {
+  --lumo-bg: rgba(15, 23, 42, 0.94);
+  --lumo-border: rgba(99, 102, 241, 0.35);
+  --lumo-primary: #6366f1;
+  --lumo-primary-hover: #4f46e5;
+  --lumo-accent: #a855f7;
+  --lumo-text: #f8fafc;
+  --lumo-text-muted: #94a3b8;
+  --lumo-user-bubble: #1e1b4b;
+  --lumo-ai-bubble: rgba(30, 41, 59, 0.85);
+}
+
+/* Floating Minimized Pill */
+#lumotutor-pill {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--lumo-bg);
+  border: 1px solid var(--lumo-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 9999px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(99, 102, 241, 0.25);
+  cursor: grab;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--lumo-text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+#lumotutor-pill:active {
+  cursor: grabbing;
+}
+
+#lumotutor-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+#lumotutor-pill.hidden {
+  display: none !important;
+}
+
+.lumotutor-pill-icon {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lumotutor-pill-label {
+  font-weight: 600;
+  background: linear-gradient(135deg, #a5b4fc, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lumotutor-pill-btn {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #fff;
+  border-radius: 20px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lumotutor-pill-btn:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+/* Floating Chat Window */
+#lumotutor-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  height: 600px;
+  max-height: calc(100vh - 48px);
+  z-index: 2147483646;
+  background: var(--lumo-bg);
+  border: 1px solid var(--lumo-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7), 0 0 25px rgba(99, 102, 241, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--lumo-text);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+#lumotutor-window.hidden {
+  display: none !important;
+}
+
+/* Header */
+.lumotutor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  cursor: grab;
+  user-select: none;
+}
+
+.lumotutor-header:active {
+  cursor: grabbing;
+}
+
+.lumotutor-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lumotutor-title-group h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #a5b4fc, #e879f9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lumotutor-time-badge {
+  background: rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c7d2fe;
+}
+
+.lumotutor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lumotutor-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--lumo-text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.lumotutor-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Quick Chips Bar */
+.lumotutor-chips-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.lumotutor-chips-bar::-webkit-scrollbar {
+  height: 3px;
+}
+.lumotutor-chips-bar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.lumotutor-chip {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.lumotutor-chip:hover {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.6);
+  color: #fff;
+}
+
+/* Chat Messages Area */
+.lumotutor-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lumotutor-messages::-webkit-scrollbar {
+  width: 5px;
+}
+.lumotutor-messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.lumotutor-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 90%;
+  border-radius: 12px;
+  padding: 10px 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.lumotutor-msg.user {
+  align-self: flex-end;
+  background: var(--lumo-user-bubble);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #f1f5f9;
+}
+
+.lumotutor-msg.assistant {
+  align-self: flex-start;
+  background: var(--lumo-ai-bubble);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+/* Screenshot Preview in Chat */
+.lumotutor-shot-preview {
+  margin-top: 6px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  max-height: 140px;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.lumotutor-shot-preview img {
+  width: 100%;
+  height: auto;
+  max-height: 140px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Math and Markdown inside message */
+.lumotutor-msg p {
+  margin: 0 0 8px 0;
+}
+.lumotutor-msg p:last-child {
+  margin-bottom: 0;
+}
+
+.lumotutor-msg h3, .lumotutor-msg h4 {
+  margin: 8px 0 4px 0;
+  color: #a5b4fc;
+}
+
+.lumotutor-msg pre, .lumotutor-msg code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.lumotutor-msg code {
+  padding: 2px 4px;
+  font-size: 12px;
+  color: #f472b6;
+}
+
+.lumotutor-msg pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lumotutor-msg ul, .lumotutor-msg ol {
+  margin: 4px 0 8px 18px;
+  padding: 0;
+}
+
+.lumotutor-msg li {
+  margin-bottom: 4px;
+}
+
+/* Math block styling */
+.lumotutor-math-block {
+  display: block;
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border-left: 3px solid #818cf8;
+  border-radius: 4px;
+  font-family: 'KaTeX_Main', 'Cambria Math', 'Times New Roman', serif;
+  font-size: 14px;
+  color: #f8fafc;
+  overflow-x: auto;
+}
+
+.lumotutor-math-inline {
+  display: inline-block;
+  padding: 0 3px;
+  font-family: 'KaTeX_Main', 'Cambria Math', 'Times New Roman', serif;
+  font-weight: 500;
+  color: #93c5fd;
+}
+
+/* Loading Indicator */
+.lumotutor-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--lumo-text-muted);
+  padding: 8px 12px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.lumotutor-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: lumo-spin 0.8s linear infinite;
+}
+
+@keyframes lumo-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Footer / Input Area */
+.lumotutor-footer {
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.7);
+  border-top: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.lumotutor-input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 6px 8px;
+  transition: border-color 0.2s;
+}
+
+.lumotutor-input-box:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+}
+
+.lumotutor-textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  resize: none;
+  max-height: 80px;
+  min-height: 24px;
+  outline: none;
+  padding: 2px 4px;
+  line-height: 1.4;
+}
+
+.lumotutor-textarea::placeholder {
+  color: #64748b;
+}
+
+/* Buttons in Footer */
+.lumotutor-mic-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.lumotutor-mic-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.lumotutor-mic-btn.listening {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+  animation: lumo-pulse 1s infinite alternate;
+}
+
+@keyframes lumo-pulse {
+  from { transform: scale(1); box-shadow: 0 0 4px #ef4444; }
+  to { transform: scale(1.1); box-shadow: 0 0 12px #ef4444; }
+}
+
+.lumotutor-send-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+
+.lumotutor-send-btn:hover {
+  opacity: 0.9;
+}
+
+.lumotutor-screen-btn {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  transition: all 0.15s;
+}
+
+.lumotutor-screen-btn:hover {
+  background: rgba(99, 102, 241, 0.35);
+  color: #fff;
+}
