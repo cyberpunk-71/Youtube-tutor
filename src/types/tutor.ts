@@ -29,7 +29,7 @@ export interface TranscriptItem {
   text: string;
 }
 
-export type TutorMode = 'socratic' | 'explain' | 'blackboard_ocr' | 'quiz' | 'sketch';
+export type TutorMode = 'explain' | 'quiz' | 'blackboard_ocr';
 
 export type AnswerDepthMode = 'detailed' | 'medium' | 'quick';
 

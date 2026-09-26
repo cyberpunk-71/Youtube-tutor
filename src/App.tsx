@@ -71,7 +71,7 @@ export const App: React.FC = () => {
     return [];
   });
 
-  const [currentMode, setCurrentMode] = useState<TutorMode>('socratic');
+  const [currentMode, setCurrentMode] = useState<TutorMode>('explain');
   const [answerDepth, setAnswerDepth] = useState<AnswerDepthMode>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_ANSWER_DEPTH);

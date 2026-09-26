@@ -244,15 +244,21 @@ export const TutorChat: React.FC<TutorChatProps> = ({
             <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Socratic / Explain / Quiz Mode Buttons */}
+          {/* Explain / Quiz Mode Switcher */}
           <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-white border border-slate-200 shadow-2xs shrink-0">
-            {(['socratic', 'explain', 'quiz'] as TutorMode[]).map((m) => (
+            {(['explain', 'quiz'] as TutorMode[]).map((m) => (
               <button
                 key={m}
-                onClick={() => onChangeMode(m)}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                onClick={() => {
+                  onChangeMode(m);
+                  if (m === 'quiz' && messages.length > 0) {
+                    onSendMessage('Generate a quiz to test my understanding of what I have watched so far', 'quiz');
+                  }
+                }}
+                className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                   currentMode === m ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-100'
                 }`}
+                title={m === 'quiz' ? 'Test what you have watched so far' : 'Detailed visual and conceptual explanations'}
               >
                 {m}
               </button>
@@ -439,7 +445,7 @@ export const TutorChat: React.FC<TutorChatProps> = ({
           <textarea
             ref={inputRef}
             rows={1}
-            placeholder="Ask about this moment in the lecture..."
+            placeholder={currentMode === 'quiz' ? "Request a quiz or test a concept from what you've watched..." : "Ask about this moment in the lecture..."}
             value={inputText}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
