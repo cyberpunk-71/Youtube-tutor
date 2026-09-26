@@ -18,16 +18,16 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
         endTime: 85,
         title: 'Slicing a Circle into Concentric Rings (0:00 - 1:25)',
         summary: 'Breaking a circle of radius R into thin concentric rings of radius r and thickness dr.',
-        blackboardContent: 'Circle with radius R. Sliced into concentric yellow/blue rings at radius r with microscopic thickness dr. When snipped and straightened, each ring forms a thin rectangular strip of width equal to circumference 2πr and height dr. Strip Area dA = 2πr · dr.',
+        blackboardContent: 'Circle with radius R. Sliced into concentric rings at radius r with microscopic thickness dr. When snipped and straightened, each ring forms a thin rectangular strip of width equal to circumference 2πr and height dr. Strip Area dA = 2πr · dr.',
         equations: ['A = \\pi R^2', 'dA = 2\\pi r \\, dr', '\\text{Circumference} = 2\\pi r', '\\text{Thickness} = dr'],
         keyConcepts: ['Concentric Rings', 'Differential Area dA = 2πr dr', 'Geometric Slicing']
       },
       {
         id: 'ch-calc-2',
         chapterNumber: 2,
-        startTime: 86,
-        endTime: 144,
-        title: 'Unrolling Rings into a Right Triangle (1:26 - 2:24)',
+        startTime: 85,
+        endTime: 145,
+        title: 'Unrolling Rings into a Right Triangle (1:25 - 2:25)',
         summary: 'Stacking all unrolled strips from r=0 to r=R creates a right triangle of base R and height 2πR.',
         blackboardContent: 'All concentric ring strips unrolled and stacked side-by-side along the horizontal axis. Horizontal Base = R, Vertical Height = 2πR. The area under the resulting diagonal line is 1/2 · Base · Height = 1/2 · R · 2πR = πR². Continuous accumulation ∫ 2πr dr = πR².',
         equations: ['\\text{Base} = R', '\\text{Height} = 2\\pi R', '\\text{Area} = \\frac{1}{2}(R)(2\\pi R) = \\pi R^2', '\\int_0^R 2\\pi r \\, dr = \\pi R^2'],
@@ -47,9 +47,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-calc-4',
         chapterNumber: 4,
-        startTime: 271,
+        startTime: 270,
         endTime: 480,
-        title: 'Finding the Antiderivative Area Function A(x) = (1/3)x³ (4:31 - 8:00)',
+        title: 'Finding the Antiderivative Area Function A(x) = (1/3)x³ (4:30 - 8:00)',
         summary: 'Reversing differentiation to find that A(x) = (1/3)x³ because its derivative is x².',
         blackboardContent: 'To find the area function A(x), we ask: what function has derivative equal to x²? Since d/dx[(1/3)x³] = x², the cumulative area under y = x² from 0 to x is exactly A(x) = (1/3)x³. Higher order infinitesimals dx² vanish in the limit as dx approaches 0.',
         equations: ['\\frac{d}{dx}\\left(\\frac{1}{3}x^3\\right) = x^2', 'A(x) = \\frac{1}{3}x^3', '\\lim_{dx \\to 0} (dx)^2 = 0'],
@@ -58,9 +58,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-calc-5',
         chapterNumber: 5,
-        startTime: 481,
+        startTime: 480,
         endTime: 650,
-        title: 'Car Motion: Position s(t) = t³ & Average vs Instantaneous Speed (8:01 - 10:50)',
+        title: 'Car Motion: Position s(t) = t³ & Average vs Instantaneous Speed (8:00 - 10:50)',
         summary: 'A car traveling with distance function s(t) = t³. Difference quotient Δs/Δt as time interval shrinks.',
         blackboardContent: 'Car traveling along road with position s(t) = t³. Speedometer measures instantaneous speed ds/dt at time t. If time advances by dt, distance changes by ds = s(t+dt) - s(t). Average speed over dt is [s(t+dt) - s(t)] / dt.',
         equations: ['s(t) = t^3', '\\text{Average Speed} = \\frac{\\Delta s}{\\Delta t} = \\frac{s(t+\\Delta t) - s(t)}{\\Delta t}', 'v(t) = \\lim_{\\Delta t \\to 0} \\frac{\\Delta s}{\\Delta t}'],
@@ -69,9 +69,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-calc-6',
         chapterNumber: 6,
-        startTime: 651,
+        startTime: 650,
         endTime: 840,
-        title: 'Power Rule Derivation: v(t) = ds/dt = 3t² (10:51 - 14:00)',
+        title: 'Power Rule Derivation: v(t) = ds/dt = 3t² (10:50 - 14:00)',
         summary: 'Expanding (t+dt)³ = t³ + 3t² dt + 3t(dt)² + (dt)³. Dividing by dt yields instantaneous velocity v(t) = 3t².',
         blackboardContent: 'Algebraic expansion: s(t+dt) = (t+dt)³ = t³ + 3t² dt + 3t(dt)² + dt³. Subtracting initial position s(t) leaves ds = 3t² dt + 3t(dt)² + dt³. Dividing by dt gives ds/dt = 3t² + 3t(dt) + dt² -> 3t² as dt -> 0. At t = 2s, velocity is v(2) = 3(2)² = 12 m/s.',
         equations: [
@@ -85,9 +85,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-calc-7',
         chapterNumber: 7,
-        startTime: 841,
+        startTime: 840,
         endTime: 1025,
-        title: 'The Fundamental Theorem of Calculus: The Grand Inverse Duality (14:01 - 17:05)',
+        title: 'The Fundamental Theorem of Calculus: The Grand Inverse Duality (14:00 - 17:05)',
         summary: 'Derivatives (instantaneous rates) and Integrals (continuous accumulation) are inverse operations.',
         blackboardContent: 'Duality of calculus on split screen: Finding the area under a curve is the exact inverse of finding the slope/rate of change. Differentiating an accumulated integral recovers the original curve: d/dx[∫ f(t) dt] = f(x). Integration undoes differentiation: ∫ f\'(x) dx = f(b) - f(a).',
         equations: [
@@ -154,9 +154,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-phys-2',
         chapterNumber: 2,
-        startTime: 91,
+        startTime: 90,
         endTime: 240,
-        title: 'Vector Decomposition along Tilted Axes (1:31 - 4:00)',
+        title: 'Vector Decomposition along Tilted Axes (1:30 - 4:00)',
         summary: 'Decomposing gravity into parallel (mg sin θ) downslope and perpendicular (mg cos θ) into ramp.',
         blackboardContent: 'Tilted coordinate frame: x-axis downslope parallel to ramp, y-axis perpendicular to ramp. Gravity decomposition: Parallel component W_parallel = mg sin θ (downslope), Perpendicular component W_perp = mg cos θ (into ramp). Normal force N balances W_perp: N = mg cos θ because ΣFy = 0.',
         equations: ['W_\\parallel = mg \\sin\\theta', 'W_\\perp = mg \\cos\\theta', 'N = mg \\cos\\theta', '\\sum F_y = N - mg \\cos\\theta = 0'],
@@ -165,9 +165,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-phys-3',
         chapterNumber: 3,
-        startTime: 241,
+        startTime: 240,
         endTime: 510,
-        title: 'Static Friction & Critical Slip Angle θ_c (4:01 - 8:30)',
+        title: 'Static Friction & Critical Slip Angle θ_c (4:00 - 8:30)',
         summary: 'Static friction fs ≤ μs N prevents sliding. Finding critical slip angle tan θ_c = μs.',
         blackboardContent: 'Static friction force fs points upslope, opposing the tendency to slide. As ramp angle θ increases, mg sin θ increases until it reaches maximum static friction fs,max = μs N = μs mg cos θ. At critical angle θ_c: mg sin θ_c = μs mg cos θ_c ==> tan θ_c = μs. Mass m cancels out!',
         equations: ['f_s \\le \\mu_s N', 'f_{s,\\max} = \\mu_s mg \\cos\\theta', 'mg \\sin\\theta_c = \\mu_s mg \\cos\\theta_c', '\\tan\\theta_c = \\mu_s'],
@@ -176,9 +176,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-phys-4',
         chapterNumber: 4,
-        startTime: 511,
+        startTime: 510,
         endTime: 840,
-        title: 'Kinetic Friction & Downslope Acceleration (8:31 - 14:00)',
+        title: 'Kinetic Friction & Downslope Acceleration (8:30 - 14:00)',
         summary: 'Once sliding begins, kinetic friction fk = μk N opposes motion. Deriving acceleration a = g(sin θ - μk cos θ).',
         blackboardContent: 'Block sliding down ramp: kinetic friction fk = μk N = μk mg cos θ acts upslope. Newton second law along incline: ΣFx = mg sin θ - fk = m a ==> mg sin θ - μk mg cos θ = m a ==> a = g(sin θ - μk cos θ). Since μk < μs, the block accelerates down the plane once slip starts.',
         equations: ['f_k = \\mu_k N = \\mu_k mg \\cos\\theta', '\\sum F_x = mg \\sin\\theta - f_k = ma', 'a = g(\\sin\\theta - \\mu_k \\cos\\theta)'],
@@ -187,9 +187,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-phys-5',
         chapterNumber: 5,
-        startTime: 841,
+        startTime: 840,
         endTime: 1240,
-        title: 'Classroom Demonstration: Measuring μs & μk with Friction Table (14:01 - 20:40)',
+        title: 'Classroom Demonstration: Measuring μs & μk with Friction Table (14:00 - 20:40)',
         summary: 'Walter Lewin tests wood, sandpaper, and teflon on the variable ramp angle meter.',
         blackboardContent: 'Classroom experimental table on board: Wood on wood (μs ≈ 0.38, θ_c ≈ 21°), Sandpaper on wood (μs ≈ 0.70, θ_c ≈ 35°), Teflon on steel (μs ≈ 0.04, θ_c ≈ 2.3°). Demonstrating that friction is independent of surface contact area.',
         equations: ['\\mu_s = \\tan\\theta_c', 'f_k < f_s'],
@@ -238,9 +238,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-chem-2',
         chapterNumber: 2,
-        startTime: 181,
+        startTime: 180,
         endTime: 450,
-        title: 'Lone Pair Repulsion & Bond Angle Compression to 104.5° (3:01 - 7:30)',
+        title: 'Lone Pair Repulsion & Bond Angle Compression to 104.5° (3:00 - 7:30)',
         summary: 'Lone pairs occupy more spatial volume than bonded pairs, squeezing the H-O-H angle from 109.5° down to 104.5°.',
         blackboardContent: 'VSEPR repulsion hierarchy on whiteboard: Lone Pair - Lone Pair > Lone Pair - Bonding Pair > Bonding Pair - Bonding Pair. The two lone pairs spread out and exert extra electrostatic repulsion, squeezing the H-O-H bond angle from the ideal tetrahedral 109.5° down to 104.5° (Bent molecular shape).',
         equations: ['\\angle \\text{H-O-H} = 104.5^\\circ \\quad (\\text{compressed from ideal } 109.5^\\circ)', '\\text{Repulsion: LP-LP} > \\text{LP-BP} > \\text{BP-BP}'],
@@ -249,9 +249,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-chem-3',
         chapterNumber: 3,
-        startTime: 451,
+        startTime: 450,
         endTime: 890,
-        title: 'Net Molecular Dipole & Polarity of Water (7:31 - 14:50)',
+        title: 'Net Molecular Dipole & Polarity of Water (7:30 - 14:50)',
         summary: 'Because water is bent rather than linear, individual O-H bond dipoles add constructively rather than canceling.',
         blackboardContent: 'Electronegativity comparison: Oxygen (3.44) is far more electronegative than Hydrogen (2.20). Each O-H bond has a dipole vector pointing toward Oxygen (δ-). Because the molecule is bent at 104.5°, the horizontal dipole components cancel while vertical components add constructively, producing a strong net dipole vector μ_net.',
         equations: ['\\vec{\\mu}_{\\text{net}} = \\sum \\vec{\\mu}_{\\text{bond}} \\ne 0', '\\Delta \\text{EN} = 3.44 - 2.20 = 1.24'],
@@ -295,9 +295,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-la-2',
         chapterNumber: 2,
-        startTime: 161,
+        startTime: 160,
         endTime: 420,
-        title: 'Tracking Basis Vectors i-hat and j-hat (2:41 - 7:00)',
+        title: 'Tracking Basis Vectors i-hat and j-hat (2:40 - 7:00)',
         summary: 'A matrix is simply a compact packaging of where standard unit vectors i-hat and j-hat land.',
         blackboardContent: 'Standard basis: i-hat = [1, 0]^T and j-hat = [0, 1]^T. If a linear transformation moves i-hat to [a, c]^T and j-hat to [b, d]^T, any vector [x, y]^T moves to x·[a, c]^T + y·[b, d]^T = [ax + by, cx + dy]^T. The matrix [a b; c d] encapsulates this entirely.',
         equations: [
@@ -309,9 +309,9 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-la-3',
         chapterNumber: 3,
-        startTime: 421,
+        startTime: 420,
         endTime: 650,
-        title: 'Geometric Examples: Rotations and Shears (7:01 - 10:50)',
+        title: 'Geometric Examples: Rotations and Shears (7:00 - 10:50)',
         summary: 'Examining 90-degree counterclockwise rotation and horizontal shear transformation matrices.',
         blackboardContent: '90-degree CCW rotation: i-hat [1, 0] lands on [0, 1], j-hat [0, 1] lands on [-1, 0]. Matrix is [0 -1; 1 0]. Horizontal shear: i-hat stays at [1, 0], j-hat tilts to [1, 1]. Matrix is [1 1; 0 1].',
         equations: [
@@ -358,13 +358,24 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       {
         id: 'ch-cs-2',
         chapterNumber: 2,
-        startTime: 241,
+        startTime: 240,
         endTime: 620,
-        title: 'Big-O Growth Curves & Asymptotic Analysis (4:01 - 10:20)',
+        title: 'Big-O Growth Curves & Asymptotic Analysis (4:00 - 10:20)',
         summary: 'Comparing runtime growth curves: O(1) constant, O(log n) logarithmic, O(n) linear, O(n log n), and O(n²) quadratic.',
         blackboardContent: 'Coordinate graph on blackboard comparing runtime curves as problem size N grows toward infinity. O(1) flat line, O(log n) sub-linear leveling off, O(n) diagonal line, O(n^2) steep upward parabola. Demonstrating that logarithmic algorithms scale to billions of inputs effortlessly.',
         equations: ['O(1) < O(\\log n) < O(n) < O(n \\log n) < O(n^2) < O(2^n)', 'T(n) = c \\cdot \\log_2(n)'],
         keyConcepts: ['Big-O Notation', 'Asymptotic Upper Bound', 'Complexity Hierarchy']
+      },
+      {
+        id: 'ch-cs-3',
+        chapterNumber: 3,
+        startTime: 620,
+        endTime: 1120,
+        title: 'Linear vs Binary Search Implementation & Scaling (10:20 - 18:40)',
+        summary: 'Implementation in C/Python and measuring real runtime differences on large arrays.',
+        blackboardContent: 'C and Python pseudocode for binary search with low, high, mid pointers. mid = (low + high) / 2. If array[mid] == target, return found. Else if array[mid] < target, search right half. Else search left half. Running time: 32 operations for 4 billion elements.',
+        equations: ['\\text{mid} = \\lfloor (\\text{low} + \\text{high}) / 2 \\rfloor', 'T(N) = T(N/2) + O(1) \\implies O(\\log N)'],
+        keyConcepts: ['Binary Search Pointers', 'Array Halving', 'Logarithmic Scaling']
       }
     ],
     transcript: [

@@ -1,5 +1,6 @@
 import { TutorMessage, InteractiveDiagram, QuizQuestion, TutorMode, CanvasNode } from '../src/types/tutor';
 import { analyzeBlackboard } from './blackboardService';
+import { findActiveChapter } from '../src/utils/chapterHelper';
 
 interface AskTutorParams {
   question: string;
@@ -50,10 +51,10 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
   } = params;
 
   const currentMinSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
-  const activeChapter = customActiveChapter || chapters.find(c => timestamp >= c.startTime && timestamp <= c.endTime) || chapters[0];
+  const activeChapter = customActiveChapter || findActiveChapter(chapters, timestamp);
 
   const depthDirective = answerDepth === 'quick'
-    ? 'ANSWER DEPTH: QUICK. Provide a concise, intuitive explanation (2-3 sentences max) focusing on the core takeaway and essential formula. Make it crystal-clear and easy to understand at a glance. No unnecessary preamble.'
+    ? 'ANSWER DEPTH: QUICK. Provide a concise, direct explanation (2-3 sentences max) focusing on the core takeaway and essential formula. Make it crystal-clear and easy to understand at a glance. No unnecessary preamble.'
     : answerDepth === 'detailed'
     ? 'ANSWER DEPTH: DETAILED. Provide a comprehensive, rigorous university-level explanation with full step-by-step mathematical proofs, underlying theorems, edge cases, and deep conceptual breakdown.'
     : 'ANSWER DEPTH: MEDIUM. Provide a balanced, clear explanation (2-3 concise paragraphs) highlighting the geometric/physical intuition, key formula derivation, and direct connection to what is on screen.';
@@ -67,7 +68,7 @@ You act like a brilliant MIT/Stanford professor and teaching assistant sitting r
 - Video: "${videoTitle}" (${channel})
 - Paused Timestamp: ${currentMinSec} (${timestamp}s)
 - Current Lecture Chapter: "${activeChapter?.title || 'Current Section'}"
-- Chapter Goal & Summary: ${activeChapter?.summary || ''}
+- Chapter Goal & Summary: ${activeChapter?.summary || 'Active topic discussion'}
 - ON-SCREEN BLACKBOARD CHALK NOTES & VISUAL DEMONSTRATION:
   ${activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen'}
 - BLACKBOARD EQUATIONS VISIBLE RIGHT NOW:
@@ -75,7 +76,7 @@ You act like a brilliant MIT/Stanford professor and teaching assistant sitting r
 - KEY CONCEPTS ACTIVELY BEING DEMONSTRATED:
   ${activeChapter?.keyConcepts?.join(', ') || 'Core principles'}
 - PROFESSOR'S SPOKEN WORDS AT THIS EXACT SECOND:
-  "${nearbyTranscript || 'N/A'}"
+  "${nearbyTranscript || activeChapter?.summary || 'N/A'}"
 - PRECEDING TOPICS IN THIS LECTURE:
   ${coveredHistory.join(' -> ') || 'Beginning of lecture'}
 
@@ -85,16 +86,11 @@ ${depthDirective}
 ================================================================================
 MANDATORY PEDAGOGICAL GROUNDING & BLACKBOARD ALIGNMENT RULES:
 ================================================================================
-1. DIRECT ON-SCREEN ALIGNMENT:
-   - The student is watching the video and looking at the blackboard at timestamp ${currentMinSec}.
-   - You MUST explain the EXACT example, shapes, numbers, variables, and blackboard drawings shown in this scene.
-   - For example:
-     * If the video is demonstrating concentric rings of a circle, explain the concentric rings, thickness $dr$, circumference $2\\pi r$, and why unrolling them produces strips of area $dA = 2\\pi r \\, dr$ that form a right triangle.
-     * If the video is on an inclined plane, explain mass $m$, angle $\\theta$, normal force $N = mg \\cos\\theta$, and friction forces shown on the board.
-     * If the video is on the parabola $y = x^2$, explain the thin rectangle strip of area $dA = x^2 dx$ and why $\\frac{dA}{dx} = x^2$.
-     * If the video is on a moving car with $s(t) = t^3$, explain the position formula, $(t+dt)^3$, and why the instantaneous velocity is $v(t) = 3t^2$.
-     * If the video is on water $H_2O$ and VSEPR, explain the 2 bonding pairs and 2 lone pairs compressing the bond angle to $104.5^\\circ$.
-   - NEVER give detached, generic textbook definitions that ignore the live example running on screen.
+1. STRICT PEDAGOGICAL GROUNDING:
+   - The student is watching this exact video and looking at the blackboard at timestamp ${currentMinSec}.
+   - Base your entire answer strictly on the concepts, formulas, and visual demonstrations occurring in this active segment of "${videoTitle}".
+   - Directly answer the student's question, connecting it to what the instructor is explaining and showing on screen right now.
+   - NEVER introduce arbitrary concepts or drift into other chapters or unrelated topics.
 2. Academic Rigor & Intuition: Explain step-by-step why the formula, principle, or theorem holds with crystal-clear geometric or physical intuition.
 3. Clean Math Formatting:
    - Use standard LaTeX with $...$ for inline math (e.g. $f'(x) = 2x$, $\\Delta x \\to 0$, $v(t) = \\frac{dx}{dt}$).
@@ -104,13 +100,13 @@ MANDATORY PEDAGOGICAL GROUNDING & BLACKBOARD ALIGNMENT RULES:
    - ONLY generate an SVG diagram if the concept fundamentally requires a geometric, spatial, graphical, or physical visual model to understand (e.g. geometric proofs, curves, vectors, force balance, circuit schematics, trees) OR if the user explicitly asks for a visual drawing/diagram.
    - If the question is conceptual, textual, algebraic, a quick definition, or does not need a visual representation, SET "diagram": null.
    - When generating a diagram: use viewBox="0 0 500 300" with crisp dark/light styling.
-5. In-Canvas Card: Provide a concise concept title and 1-2 sentence core formula takeaway in "canvasCard".
+5. In-Canvas Card: Provide a concise concept title for this moment in "canvasCard".
 
 Return your response strictly as a valid JSON object matching this schema:
 {
   "content": "Your conversational explanation formatted in markdown with LaTeX $...$ and $$...$$",
   "canvasCard": {
-    "title": "Descriptive concept title (e.g. Concentric Rings Area Derivation)",
+    "title": "Descriptive concept title for this scene",
     "summary": "Core formula or 1-2 sentence takeaway",
     "suggestedX": ${Math.round((canvasCoordinates?.x || 300) + 120)},
     "suggestedY": ${Math.round((canvasCoordinates?.y || 200) + 40)}
@@ -287,7 +283,7 @@ Return your response strictly as a valid JSON object matching this schema:
   // =========================================================================
   // 4. QUATERNARY TIER: Resilient Heuristic Math & Diagram Generator
   // =========================================================================
-  return generateHeuristicTutorReply(question, timestamp, videoTitle, canvasCoordinates);
+  return generateHeuristicTutorReply(question, timestamp, videoTitle, activeChapter, canvasCoordinates);
 }
 
 function parseAIResponse(rawText: string, question: string, timestamp: number, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
@@ -498,35 +494,41 @@ function generateFallbackDiagram(question: string, timestamp: number): Interacti
   return null;
 }
 
-function generateHeuristicTutorReply(question: string, timestamp: number, videoTitle: string, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
+function generateHeuristicTutorReply(question: string, timestamp: number, videoTitle: string, activeChapter?: any, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
   const minSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
   const diagram = generateFallbackDiagram(question, timestamp);
 
   const targetX = canvasCoordinates?.x ? canvasCoordinates.x + 140 : 450;
   const targetY = canvasCoordinates?.y ? canvasCoordinates.y - 20 : 150;
 
-  const content = `### Analysis at ${minSec}\n\nWhen we examine the concept at this exact timestamp in **${videoTitle}**:\n\n1. **Fundamental Mechanism**: A small perturbation in the input $\\Delta x$ produces an instantaneous rate of change in the output:\n$$\\frac{dy}{dx} = \\lim_{\\Delta x \\to 0} \\frac{f(x + \\Delta x) - f(x)}{\\Delta x}$$\n\n2. **Conceptual Significance**: The derivative represents the instantaneous rate of change and slope of the tangent line at $(x, f(x))$.\n\n3. **Application**: Notice how this directly relates to what the professor is explaining at ${minSec}.`;
+  const topicTitle = activeChapter?.title || 'Core Lecture Segment';
+  const blackboardNote = activeChapter?.blackboardContent || 'Equations and live demonstrations on screen.';
+  const equationsList = activeChapter?.equations && activeChapter.equations.length > 0
+    ? activeChapter.equations.map((eq: string) => `$$${eq}$$`).join('\n')
+    : '$$f(x) = y$$';
+
+  const content = `### ${topicTitle} (${minSec})\n\nLooking at the blackboard in **${videoTitle}** at ${minSec}:\n\n1. **Active Lecture Scene**: ${blackboardNote}\n\n2. **Key Formulas on Screen**:\n${equationsList}\n\n3. **Conceptual Breakdown**: The instructor is actively demonstrating how these variables and principles interact step-by-step.`;
 
   return {
     role: 'assistant',
     content,
     diagram: diagram || null,
     quiz: {
-      question: 'What does the derivative geometrically represent on the curve?',
+      question: `What is the core principle demonstrated in "${topicTitle}"?`,
       type: 'multiple_choice',
       options: [
-        'The slope of the tangent line at that exact point',
-        'The total accumulated area under the curve',
-        'The average height of the function',
-        'The distance between two intercepts'
+        activeChapter?.keyConcepts?.[0] || 'The primary formula on the board',
+        'Unrelated background setup',
+        'Standard unit conversion',
+        'Alternative notation definition'
       ],
       correctAnswerIndex: 0,
-      explanation: 'The derivative $f\'(x)$ represents the instantaneous rate of change, which corresponds exactly to the slope of the tangent line at that point.',
-      targetedConcept: 'Geometric definition of the derivative'
+      explanation: `At ${minSec}, the focus is directly on ${activeChapter?.keyConcepts?.[0] || topicTitle}.`,
+      targetedConcept: topicTitle
     },
     suggestedPrompts: [
-      'Why is the power rule $(x^n)\' = n x^{n-1}$ true geometrically?',
-      'How does this connect to what is shown on the blackboard?'
+      `Can you break down the formula in "${topicTitle}" step-by-step?`,
+      'How does this connect to the live example on screen?'
     ],
     timestamp,
     canvasNode: {
@@ -534,7 +536,7 @@ function generateHeuristicTutorReply(question: string, timestamp: number, videoT
       type: 'ai_answer',
       x: targetX,
       y: targetY,
-      title: 'Derivative & Step-by-Step Derivation',
+      title: topicTitle,
       content,
       diagramSvg: diagram?.svgMarkup || undefined,
       timestamp,

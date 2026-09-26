@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, Mic, MicOff, Volume2, VolumeX, Sparkles, 
   HelpCircle, CheckCircle2, XCircle, ArrowRight,
-  MessageSquare, Lightbulb, ChevronLeft, ChevronRight, Minus, Maximize2, Minimize2, ArrowDown, ChevronDown
+  MessageSquare, Lightbulb, ChevronLeft, ChevronRight, Minus, Maximize2, Minimize2, ArrowDown, ChevronDown, Trash2
 } from 'lucide-react';
 import type { TutorMessage, TutorMode, QuizQuestion, AnswerDepthMode } from '../types/tutor';
 import { MathText } from '../utils/katexRenderer';
@@ -19,6 +19,7 @@ interface TutorChatProps {
   onChangeMode: (mode: TutorMode) => void;
   answerDepth: AnswerDepthMode;
   onChangeAnswerDepth: (depth: AnswerDepthMode) => void;
+  onClearChat?: () => void;
   isMaximized: boolean;
   onToggleMaximize: () => void;
   isMinimized: boolean;
@@ -40,6 +41,7 @@ export const TutorChat: React.FC<TutorChatProps> = ({
   onChangeMode,
   answerDepth,
   onChangeAnswerDepth,
+  onClearChat,
   isMaximized,
   onToggleMaximize,
   isMinimized,
@@ -258,8 +260,17 @@ export const TutorChat: React.FC<TutorChatProps> = ({
           </div>
         </div>
 
-        {/* Right: Window Controls */}
+        {/* Right: Actions & Window Controls */}
         <div className="flex items-center gap-0.5 shrink-0">
+          {onClearChat && (
+            <button
+              onClick={onClearChat}
+              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+              title="Clear Chat Conversation"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={onToggleMaximize}
             className="p-1.5 rounded-lg hover:bg-slate-200/80 text-slate-500 hover:text-slate-800 transition-colors"

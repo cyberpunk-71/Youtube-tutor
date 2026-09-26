@@ -4,6 +4,7 @@ import { VideoPlayer } from './components/VideoPlayer';
 import { WhiteboardCanvas } from './components/WhiteboardCanvas';
 import { TutorChat } from './components/TutorChat';
 import { BlackboardInspector } from './components/BlackboardInspector';
+import { findActiveChapter } from './utils/chapterHelper';
 import type { 
   VideoMetadata, VideoChapter, TutorMessage, InteractiveDiagram, 
   BlackboardAnalysis, TutorMode, BlackboardBoundingBox, CanvasNode,
@@ -366,9 +367,7 @@ export const App: React.FC = () => {
   };
 
   // Compute active chapter
-  const activeChapter: VideoChapter | null = currentVideo?.chapters?.find(
-    ch => currentTime >= ch.startTime && currentTime <= ch.endTime
-  ) || currentVideo?.chapters?.[0] || null;
+  const activeChapter: VideoChapter | null = findActiveChapter(currentVideo?.chapters, currentTime);
 
   // Handle URL Load (User inputs new YouTube URL)
   const handleLoadUrl = async (url: string) => {
@@ -388,6 +387,7 @@ export const App: React.FC = () => {
       setCurrentVideo(meta);
       setCurrentTime(0);
       setAutoPausedAt(null);
+      updateCurrentDiagram(null);
 
       // Add to recent videos history (max 5 items)
       const newItem: RecentVideoItem = {
@@ -437,6 +437,7 @@ export const App: React.FC = () => {
     const resumeTime = item.lastTimestamp || 0;
     setCurrentTime(resumeTime);
     setAutoPausedAt(null);
+    updateCurrentDiagram(null);
 
     // Update active session
     localStorage.setItem(STORAGE_ACTIVE_SESSION, JSON.stringify({
@@ -502,9 +503,7 @@ export const App: React.FC = () => {
     setAutoPausedAt(currentTime);
 
     try {
-      const activeChapter = currentVideo?.chapters?.find(
-        ch => currentTime >= ch.startTime && currentTime <= ch.endTime
-      ) || currentVideo?.chapters?.[0] || null;
+      const activeChapter = findActiveChapter(currentVideo?.chapters, currentTime);
 
       const coveredChapters = currentVideo?.chapters
         ?.filter(ch => ch.startTime <= currentTime)
@@ -593,9 +592,7 @@ export const App: React.FC = () => {
     setIsLoadingTutor(true);
 
     try {
-      const activeChapter = currentVideo?.chapters?.find(
-        ch => currentTime >= ch.startTime && currentTime <= ch.endTime
-      ) || currentVideo?.chapters?.[0] || null;
+      const activeChapter = findActiveChapter(currentVideo?.chapters, currentTime);
 
       const coveredChapters = currentVideo?.chapters
         ?.filter(ch => ch.startTime <= currentTime)
@@ -646,20 +643,6 @@ export const App: React.FC = () => {
       if (data.diagram && data.diagram.svgMarkup) {
         updateCurrentDiagram(data.diagram);
       }
-
-      // Automatically create a dynamic AI card on the whiteboard canvas
-      const newNode: CanvasNode = {
-        id: data.canvasNode?.id || `node-${Date.now()}`,
-        type: 'ai_answer',
-        x: data.canvasNode?.x || 380,
-        y: data.canvasNode?.y || 140,
-        title: data.canvasNode?.title || (answerDepth === 'quick' ? 'Quick Takeaway' : 'My Tutor Insight'),
-        content: data.canvasNode?.content || data.content,
-        diagramSvg: data.diagram?.svgMarkup || undefined,
-        timestamp: currentTime,
-        createdAt: Date.now()
-      };
-      updateCanvasNodes(prev => [...prev, newNode]);
     } catch (err) {
       console.error('Error querying tutor:', err);
       updateMessages(prev => [
@@ -674,6 +657,18 @@ export const App: React.FC = () => {
       ]);
     } finally {
       setIsLoadingTutor(false);
+    }
+  };
+
+  const handleClearChat = () => {
+    if (messages.length === 0) return;
+    if (confirm('Clear the current chat conversation history?')) {
+      setMessages([]);
+      try {
+        localStorage.removeItem(STORAGE_CHAT_MESSAGES);
+      } catch (e) {
+        console.warn('Error clearing chat history:', e);
+      }
     }
   };
 
@@ -957,6 +952,7 @@ export const App: React.FC = () => {
                     onChangeMode={setCurrentMode}
                     answerDepth={answerDepth}
                     onChangeAnswerDepth={handleUpdateAnswerDepth}
+                    onClearChat={handleClearChat}
                     isMaximized={maximizedPanel === 'chat'}
                     onToggleMaximize={() => handleToggleMaximize('chat')}
                     isMinimized={minimizedPanels.chat}

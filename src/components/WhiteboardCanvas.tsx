@@ -227,6 +227,9 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawn(false);
     setStrokeBounds(null);
+    if (onCloseDiagram) {
+      onCloseDiagram();
+    }
   };
 
   const handleAskAboutDrawing = (customText?: string) => {
@@ -474,8 +477,8 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                   {onCloseDiagram && (
                     <button
                       onClick={onCloseDiagram}
-                      className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-                      title="Dismiss diagram"
+                      className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                      title="Dismiss diagram (x)"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -527,8 +530,8 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                     e.stopPropagation();
                     onDeleteCanvasNode(node.id);
                   }}
-                  className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors"
-                  title="Remove card"
+                  className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                  title="Remove card (x)"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
