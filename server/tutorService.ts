@@ -2,6 +2,11 @@ import { TutorMessage, InteractiveDiagram, QuizQuestion, TutorMode, CanvasNode }
 import { analyzeBlackboard } from './blackboardService';
 import { findActiveChapter } from '../src/utils/chapterHelper';
 
+export interface ChatHistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface AskTutorParams {
   question: string;
   mode?: TutorMode;
@@ -14,20 +19,21 @@ export interface AskTutorParams {
   coveredHistory?: string[];
   nearbyTranscript?: string;
   activeChapter?: any;
+  chatHistory?: ChatHistoryTurn[];
   studentDrawingBase64?: string;
   blackboardFrameBase64?: string;
   frameUrl?: string;
   canvasCoordinates?: { x: number; y: number; width?: number; height?: number };
 }
 
-// 1. Primary Engine: Groq High-Speed Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
+// 1. Primary Engine: Groq Ultra-Fast Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
-// 2. Multimodal Vision & Complex Reasoning: Hermes Antigravity Proxy (Port 8090)
-const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash', 'gemini-3.8-flash-medium'];
+// 2. Multimodal Vision & Deep Reasoning: Hermes Antigravity Proxy (Port 8090)
+const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash'];
 
-// 3. Tertiary Engine: OpenRouter Free Models
+// 3. Tertiary Engine: OpenRouter Free Fallback Models
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_MODELS = [
@@ -49,6 +55,7 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     coveredHistory = [],
     nearbyTranscript = '',
     activeChapter: customActiveChapter,
+    chatHistory = [],
     studentDrawingBase64,
     blackboardFrameBase64,
     frameUrl,
@@ -59,64 +66,63 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
   const activeChapter = customActiveChapter || findActiveChapter(chapters, timestamp);
 
   const depthDirective = answerDepth === 'quick'
-    ? 'ANSWER DEPTH: QUICK. Provide a concise, direct explanation (2-3 sentences max) focusing on the core takeaway and essential formula. Make it crystal-clear and easy to understand at a glance. No unnecessary preamble.'
+    ? 'ANSWER DEPTH: QUICK. Provide a concise, highly direct explanation (2-3 sentences max) highlighting the single core takeaway and essential formula. Crystal-clear and easy to understand at a glance with no unnecessary filler.'
     : answerDepth === 'detailed'
-    ? 'ANSWER DEPTH: DETAILED. Provide a comprehensive, rigorous university-level explanation with full step-by-step mathematical proofs, underlying theorems, edge cases, and deep conceptual breakdown.'
-    : 'ANSWER DEPTH: MEDIUM. Provide a balanced, clear explanation (2-3 concise paragraphs) highlighting the geometric/physical intuition, key formula derivation, and direct connection to what is on screen.';
+    ? 'ANSWER DEPTH: DETAILED. Provide a comprehensive, rigorous university-level explanation with full step-by-step mathematical proofs, underlying theorems, arithmetic steps, edge cases, and deep conceptual breakdown.'
+    : 'ANSWER DEPTH: MEDIUM. Provide a balanced, clear explanation (2-3 focused paragraphs) highlighting the geometric/physical intuition, key formula derivation, and direct connection to what is on screen.';
 
-  const systemPrompt = `You are My Tutor, an extraordinary university-level AI tutor built directly into an interactive video lecture player and infinite spatial whiteboard canvas.
-You act like a brilliant MIT/Stanford professor and teaching assistant sitting right next to the student with a digital whiteboard pen.
+  const systemPrompt = `You are My Tutor, a brilliant, world-class university AI professor and teaching assistant embedded directly inside an interactive video lecture player.
+You are tutoring a student watching "${videoTitle}" by ${channel}.
 
 ================================================================================
-🚨 CRITICAL LIVE LECTURE SCENE & BLACKBOARD STATE AT ${currentMinSec} (${timestamp}s)
+🚨 CURRENT VIDEO SCREEN, BLACKBOARD & TIMELINE STATE AT ${currentMinSec} (${timestamp}s)
 ================================================================================
-- Video: "${videoTitle}" (${channel})
+- Video Title: "${videoTitle}" (${channel})
 - Paused Timestamp: ${currentMinSec} (${timestamp}s)
 - Current Lecture Chapter: "${activeChapter?.title || 'Current Section'}"
-- Chapter Goal & Summary: ${activeChapter?.summary || 'Active topic discussion'}
+- Chapter Summary & Focus: ${activeChapter?.summary || 'Active topic discussion'}
 - ON-SCREEN BLACKBOARD CHALK NOTES & VISUAL DEMONSTRATION:
   ${activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen'}
-- BLACKBOARD EQUATIONS VISIBLE RIGHT NOW:
+- VISIBLE FORMULAS & NUMBERS ON SCREEN RIGHT NOW:
   ${activeChapter?.equations?.length ? activeChapter.equations.join(', ') : 'None'}
 - KEY CONCEPTS ACTIVELY BEING DEMONSTRATED:
   ${activeChapter?.keyConcepts?.join(', ') || 'Core principles'}
-- PROFESSOR'S SPOKEN WORDS AT THIS EXACT SECOND:
+- PROFESSOR'S SPOKEN WORDS AT THIS MOMENT:
   "${nearbyTranscript || activeChapter?.summary || 'N/A'}"
 - PRECEDING TOPICS IN THIS LECTURE:
   ${coveredHistory.join(' -> ') || 'Beginning of lecture'}
 
-Student's Interaction Mode: "${mode}" (options: socratic, explain, blackboard_ocr, quiz, sketch)
+Student's Interaction Mode: "${mode}" (options: socratic, explain, blackboard_ocr, quiz)
 ${depthDirective}
 
 ================================================================================
-MANDATORY PEDAGOGICAL GROUNDING & BLACKBOARD ALIGNMENT RULES:
+MANDATORY MULTI-TURN CONVERSATION & SCREEN-AWARE GROUNDING RULES:
 ================================================================================
-1. STRICT PEDAGOGICAL GROUNDING & VISUAL SCREEN INSPECTION:
-   - Visually inspect the active lecture scene and chalkboard state at timestamp ${currentMinSec}.
-   - Read the exact handwritten chalk notes, slides, equations, and diagrams shown on the screen.
-   - Base your answer directly on the visible blackboard formulas and visual demonstrations occurring in this active scene of "${videoTitle}".
-   - Directly answer the student's question, connecting it to what the instructor is explaining and showing on screen right now.
-   - NEVER introduce arbitrary concepts or drift into other chapters or unrelated topics.
-2. Academic Rigor & Intuition: Explain step-by-step why the formula, principle, or theorem holds with crystal-clear geometric or physical intuition.
-3. Clean Math Formatting:
-   - Use standard LaTeX with $...$ for inline math (e.g. $f'(x) = 2x$, $\\Delta x \\to 0$, $v(t) = \\frac{dx}{dt}$).
-   - Use $$...$$ on their own lines for display block equations (e.g. $$\\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h} = f'(x)$$).
-   - NEVER output broken formatting or raw unrendered code blocks for math.
-4. VISUAL DIAGRAM DIRECTIVE (STRICT RELEVANCE ONLY):
-   - ONLY generate an SVG diagram if the concept fundamentally requires a geometric, spatial, graphical, or physical visual model to understand (e.g. geometric proofs, curves, vectors, force balance, circuit schematics, trees) OR if the user explicitly asks for a visual drawing/diagram.
-   - If the question is conceptual, textual, algebraic, a quick definition, or does not need a visual representation, SET "diagram": null.
-   - When generating a diagram: use viewBox="0 0 500 300" with crisp dark/light styling.
-5. In-Canvas Card: Provide a concise concept title for this moment in "canvasCard".
+1. MULTI-TURN CONVERSATION MEMORY & ZERO REPETITION:
+   - Carefully inspect the previous chat conversation messages.
+   - If the student is asking a follow-up question (e.g. "why did we divide by 10?", "what is step 2?", "explain without calculus", "what about x_2?"), BUILD DIRECTLY ON WHAT WAS ALREADY DISCUSSED.
+   - NEVER repeat the same greeting, introductory summary, or canned boilerplate across turns.
+   - Directly address the exact doubt or arithmetic step the student just asked about.
+2. PRECISE VISUAL SCREEN & CALCULATION GROUNDING:
+   - Read the exact handwritten chalk notes, slides, equations, and numbers visible at ${currentMinSec}.
+   - If the instructor is solving an example (e.g. in Numerical Analysis Newton-Raphson $f(x)=x^3-2x-5=0$ with $x_0=2 \\to x_1=2.1 \\to x_2=2.094568$), follow the exact numbers, derivatives, and iterations shown on screen.
+   - If the student asks about a different equation or asks for clarification, provide accurate mathematics directly answering their question.
+3. ACADEMIC RIGOR & GEOMETRIC INTUITION:
+   - Explain why the principle holds with geometric or physical clarity.
+4. CLEAN MATH FORMATTING:
+   - Use standard LaTeX with $...$ for inline math (e.g. $f'(x) = 3x^2 - 2$, $x_{n+1} = x_n - \\frac{f(x_n)}{f'(x_n)}$).
+   - Use $$...$$ on their own lines for display block equations.
+5. VISUAL DIAGRAM DIRECTIVE (STRICT RELEVANCE ONLY):
+   - ONLY include an SVG diagram in "diagram" if the concept fundamentally requires a geometric, spatial, graphical, or physical visual model to understand (e.g. curve tangent iterations, area strips, force balance) OR if the user explicitly asks for a drawing/diagram/plot.
+   - If the question is conceptual, textual, algebraic, or does not need a visual representation, SET "diagram": null.
+   - When generating a diagram: use viewBox="0 0 500 300" with crisp modern styling.
+6. COMPREHENSION QUIZ & SUGGESTED FOLLOW-UP PROMPTS:
+   - Provide an insightful comprehension quiz question in "quiz".
+   - Provide 2-3 natural, highly relevant follow-up questions in "suggestedPrompts" that the student can click to explore further.
 
 Return your response strictly as a valid JSON object matching this schema:
 {
   "content": "Your conversational explanation formatted in markdown with LaTeX $...$ and $$...$$",
-  "canvasCard": {
-    "title": "Descriptive concept title for this scene",
-    "summary": "Core formula or 1-2 sentence takeaway",
-    "suggestedX": ${Math.round((canvasCoordinates?.x || 300) + 120)},
-    "suggestedY": ${Math.round((canvasCoordinates?.y || 200) + 40)}
-  },
   "diagram": null,
   "quiz": {
     "question": "Comprehension check question?",
@@ -151,11 +157,20 @@ Return your response strictly as a valid JSON object matching this schema:
     }
   }
 
-  const multimodalMessages: any[] = [
-    { role: 'system', content: systemPrompt }
-  ];
+  // Format previous turns for multi-turn LLM context
+  const chatHistoryMessages: Array<{ role: 'user' | 'assistant'; content: string }> = (chatHistory || [])
+    .slice(-8)
+    .map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+    }));
 
-  const userPromptText = `[Lecture Scene & Blackboard at ${currentMinSec} in "${videoTitle}"]\nSpoken Words at this second: "${nearbyTranscript || 'N/A'}"\nActive Chapter: "${activeChapter?.title || 'Current Section'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the chalkboard state, read the visible formulas and visual demonstrations at ${currentMinSec}, and explain thoroughly.`;
+  const userPromptText = `[Lecture Scene & Blackboard at ${currentMinSec} in "${videoTitle}"]\nSpoken Words at this second: "${nearbyTranscript || 'N/A'}"\nActive Chapter: "${activeChapter?.title || 'Current Section'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the chalkboard state, read the visible formulas and visual demonstrations at ${currentMinSec}, consider our prior conversation, and answer directly.`;
+
+  const multimodalMessages: any[] = [
+    { role: 'system', content: systemPrompt },
+    ...chatHistoryMessages
+  ];
 
   if (imageBase64ToUse && imageBase64ToUse.startsWith('data:image')) {
     multimodalMessages.push({
@@ -174,6 +189,7 @@ Return your response strictly as a valid JSON object matching this schema:
 
   const textOnlyMessages: any[] = [
     { role: 'system', content: systemPrompt },
+    ...chatHistoryMessages,
     { role: 'user', content: userPromptText }
   ];
 
@@ -334,7 +350,7 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
         }
       } catch {
         parsed = {};
-        const contentMatch = cleanedStr.match(/"content"\s*:\s*"([\s\S]*?)"\s*,\s*"(?:canvasCard|diagram|quiz)/);
+        const contentMatch = cleanedStr.match(/"content"\s*:\s*"([\s\S]*?)"\s*,\s*"(?:diagram|quiz|suggestedPrompts)/);
         if (contentMatch) {
           parsed.content = contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
         }
@@ -351,7 +367,7 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
     } else {
       finalContent = rawText
         .replace(/^\s*\{\s*"content"\s*:\s*"/, '')
-        .replace(/"\s*,\s*"canvasCard[\s\S]*$/, '')
+        .replace(/"\s*,\s*"diagram[\s\S]*$/, '')
         .replace(/\\n/g, '\n')
         .replace(/\\"/g, '"');
     }
@@ -379,38 +395,16 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
     }
   }
 
-  const targetX = canvasCoordinates?.x ? canvasCoordinates.x + 140 : 450;
-  const targetY = canvasCoordinates?.y ? canvasCoordinates.y - 20 : 150;
-
-  const canvasNode: Partial<CanvasNode> = {
-    id: `node-${Date.now()}`,
-    type: 'ai_answer',
-    x: parsed?.canvasCard?.suggestedX || targetX,
-    y: parsed?.canvasCard?.suggestedY || targetY,
-    title: parsed?.canvasCard?.title || 'My Tutor Insight & Derivation',
-    content: finalContent,
-    diagramSvg: diagram?.svgMarkup,
-    timestamp,
-    targetDrawingBox: canvasCoordinates ? {
-      x: canvasCoordinates.x,
-      y: canvasCoordinates.y,
-      width: canvasCoordinates.width || 60,
-      height: canvasCoordinates.height || 40
-    } : undefined,
-    createdAt: Date.now()
-  };
-
   return {
     role: 'assistant',
     content: finalContent,
     diagram: diagram || null,
     quiz: parsed?.quiz,
     suggestedPrompts: parsed?.suggestedPrompts || [
-      'Can you break down the next step geometrically?',
-      'How does this relate to the lecture video?'
+      'Can you break down the next step in this calculation?',
+      'Why did the formula work this way on the screen?'
     ],
-    timestamp,
-    canvasNode
+    timestamp
   };
 }
 
@@ -541,9 +535,6 @@ function generateDynamicHeuristicReply(
   const minSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
   const diagram = generateFallbackDiagram(question, timestamp);
 
-  const targetX = canvasCoordinates?.x ? canvasCoordinates.x + 140 : 450;
-  const targetY = canvasCoordinates?.y ? canvasCoordinates.y - 20 : 150;
-
   const topicTitle = activeChapter?.title || 'Active Lecture Concept';
   const blackboardNote = activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen.';
   const equationsList = activeChapter?.equations && activeChapter.equations.length > 0
@@ -559,7 +550,7 @@ At **${minSec}** in **${videoTitle}**, we are examining:
 ${blackboardNote}${spokenDialogue}
 
 ${equationsList ? `**Key Formulas on Screen**:\n${equationsList}\n\n` : ''}**Direct Answer to your question ("${question}")**:
-The core intuition at this moment connects the theoretical definition to the visual behavior shown on screen. As the parameter varies, each increment produces a corresponding rate of change or force balance across the system.`;
+The core mathematical principle connects the theoretical definition directly to the visual demonstration on the screen. As shown on the board, each step advances the solution systematically.`;
 
   return {
     role: 'assistant',
@@ -579,20 +570,9 @@ The core intuition at this moment connects the theoretical definition to the vis
       targetedConcept: topicTitle
     },
     suggestedPrompts: [
-      `Can you break down the formula in "${topicTitle}" step-by-step?`,
-      'How does this connect to the live example on screen?'
+      `Can you break down the next calculation step?`,
+      `Why is this equation used at ${minSec}?`
     ],
-    timestamp,
-    canvasNode: {
-      id: `node-${Date.now()}`,
-      type: 'ai_answer',
-      x: targetX,
-      y: targetY,
-      title: topicTitle,
-      content,
-      diagramSvg: diagram?.svgMarkup || undefined,
-      timestamp,
-      createdAt: Date.now()
-    }
+    timestamp
   };
 }

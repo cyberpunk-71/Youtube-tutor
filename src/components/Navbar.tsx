@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import type { VideoMetadata, RecentVideoItem } from '../types/tutor';
 
-export type StudioLayoutPreset = 'studio' | 'canvas_focus' | 'cinema_focus' | 'chat_focus';
+export type StudioLayoutPreset = 'balanced' | 'cinema' | 'chat';
 
 interface NavbarProps {
   currentVideo: VideoMetadata | null;
@@ -50,10 +50,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const layoutOptions: { id: StudioLayoutPreset; label: string; icon: any; desc: string }[] = [
-    { id: 'studio', label: 'Studio View', icon: Columns3, desc: 'Balanced 3-Column (34% | 41% | 25%)' },
-    { id: 'canvas_focus', label: 'Whiteboard Focus', icon: Maximize, desc: 'Expanded Canvas (60% Center)' },
-    { id: 'cinema_focus', label: 'Cinema Video', icon: PanelLeft, desc: 'Large Video Left (55%)' },
-    { id: 'chat_focus', label: 'Tutor Chat Focus', icon: MessageSquare, desc: 'Expanded AI Discussion (45%)' }
+    { id: 'balanced', label: 'Balanced View', icon: Columns3, desc: '58% Video · 42% AI Tutor Chat' },
+    { id: 'cinema', label: 'Cinema Video', icon: PanelLeft, desc: '72% Video Focus · 28% Chat' },
+    { id: 'chat', label: 'Chat Discussion', icon: MessageSquare, desc: '40% Video · 60% Expanded Chat' }
   ];
 
   const formatTimestamp = (secs: number) => {

@@ -1,24 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Navbar, type StudioLayoutPreset } from './components/Navbar';
 import { VideoPlayer } from './components/VideoPlayer';
-import { WhiteboardCanvas } from './components/WhiteboardCanvas';
 import { TutorChat } from './components/TutorChat';
 import { BlackboardInspector } from './components/BlackboardInspector';
 import { findActiveChapter } from './utils/chapterHelper';
 import type { 
   VideoMetadata, VideoChapter, TutorMessage, InteractiveDiagram, 
-  BlackboardAnalysis, TutorMode, BlackboardBoundingBox, CanvasNode,
+  BlackboardAnalysis, TutorMode, BlackboardBoundingBox,
   RecentVideoItem, AnswerDepthMode
 } from './types/tutor';
 
-type PanelKey = 'video' | 'whiteboard' | 'chat';
+type PanelKey = 'video' | 'chat';
 
 // Local Storage Master Keys for 100% Reload/Reboot Persistence
 const STORAGE_ACTIVE_SESSION = 'mytutor_active_session_v1';
 const STORAGE_RECENT_VIDEOS = 'mytutor_recent_videos_v1';
 const STORAGE_CHAT_MESSAGES = 'mytutor_chat_messages_v1';
-const STORAGE_CANVAS_NODES = 'mytutor_canvas_nodes_v1';
-const STORAGE_ACTIVE_DIAGRAM = 'mytutor_active_diagram_v1';
 const STORAGE_LAYOUT_CONFIG = 'mytutor_layout_config_v1';
 const STORAGE_ANSWER_DEPTH = 'mytutor_answer_depth_v1';
 
@@ -62,7 +59,7 @@ export const App: React.FC = () => {
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [autoPausedAt, setAutoPausedAt] = useState<number | null>(null);
   
-  // Persistent Chat Messages & Whiteboard Canvas Cards
+  // Persistent Chat Messages
   const [messages, setMessages] = useState<TutorMessage[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_CHAT_MESSAGES);
@@ -72,28 +69,6 @@ export const App: React.FC = () => {
       }
     } catch {}
     return [];
-  });
-
-  const [canvasNodes, setCanvasNodes] = useState<CanvasNode[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_CANVAS_NODES);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {}
-    return [];
-  });
-
-  const [currentDiagram, setCurrentDiagram] = useState<InteractiveDiagram | null>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_ACTIVE_DIAGRAM);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed) return parsed;
-      }
-    } catch {}
-    return null;
   });
 
   const [currentMode, setCurrentMode] = useState<TutorMode>('socratic');
@@ -121,20 +96,8 @@ export const App: React.FC = () => {
   const [isLoadingVideo, setIsLoadingVideo] = useState<boolean>(false);
   const [isLoadingTutor, setIsLoadingTutor] = useState<boolean>(false);
   const [isLoadingOcr, setIsLoadingOcr] = useState<boolean>(false);
-  const [isCheckingDrawing, setIsCheckingDrawing] = useState<boolean>(false);
 
-  // Studio Panel Layout State
-  const [panelOrder, setPanelOrder] = useState<PanelKey[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_LAYOUT_CONFIG);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed?.panelOrder) && parsed.panelOrder.length === 3) return parsed.panelOrder;
-      }
-    } catch {}
-    return ['video', 'whiteboard', 'chat'];
-  });
-
+  // 2-Column Panel Layout State (Video left, Chat right)
   const [activeLayoutPreset, setActiveLayoutPreset] = useState<StudioLayoutPreset>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_LAYOUT_CONFIG);
@@ -143,23 +106,24 @@ export const App: React.FC = () => {
         if (parsed?.activeLayoutPreset) return parsed.activeLayoutPreset;
       }
     } catch {}
-    return 'studio';
+    return 'balanced';
   });
 
-  const [panelWidths, setPanelWidths] = useState<{ [key in PanelKey]: number }>(() => {
+  const [panelWidths, setPanelWidths] = useState<{ video: number; chat: number }>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_LAYOUT_CONFIG);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.panelWidths) return parsed.panelWidths;
+        if (parsed?.panelWidths?.video && parsed?.panelWidths?.chat) {
+          return parsed.panelWidths;
+        }
       }
     } catch {}
-    return { video: 34, whiteboard: 41, chat: 25 };
+    return { video: 58, chat: 42 };
   });
 
-  const [minimizedPanels, setMinimizedPanels] = useState<{ [key in PanelKey]: boolean }>({
+  const [minimizedPanels, setMinimizedPanels] = useState<{ video: boolean; chat: boolean }>({
     video: false,
-    whiteboard: false,
     chat: false
   });
 
@@ -167,9 +131,9 @@ export const App: React.FC = () => {
 
   // Splitter Dragging State
   const containerRef = useRef<HTMLDivElement>(null);
-  const [resizingSplitterIdx, setResizingSplitterIdx] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
   const [dragStartX, setDragStartX] = useState<number>(0);
-  const [initialWidths, setInitialWidths] = useState<{ [key in PanelKey]: number }>({ ...panelWidths });
+  const [initialWidths, setInitialWidths] = useState<{ video: number; chat: number }>({ ...panelWidths });
 
   // Fast Refs for zero-latency beforeunload/reboot flush
   const currentVideoRef = useRef<VideoMetadata | null>(currentVideo);
@@ -329,33 +293,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // Sync and save canvas nodes to localStorage
-  const updateCanvasNodes = (newNodesOrFn: CanvasNode[] | ((prev: CanvasNode[]) => CanvasNode[])) => {
-    setCanvasNodes(prev => {
-      const next = typeof newNodesOrFn === 'function' ? newNodesOrFn(prev) : newNodesOrFn;
-      try {
-        localStorage.setItem(STORAGE_CANVAS_NODES, JSON.stringify(next));
-      } catch (e) {
-        console.warn('Error saving canvas nodes:', e);
-      }
-      return next;
-    });
-  };
-
-  // Sync and save active diagram to localStorage
-  const updateCurrentDiagram = (diag: InteractiveDiagram | null) => {
-    setCurrentDiagram(diag);
-    try {
-      if (diag) {
-        localStorage.setItem(STORAGE_ACTIVE_DIAGRAM, JSON.stringify(diag));
-      } else {
-        localStorage.removeItem(STORAGE_ACTIVE_DIAGRAM);
-      }
-    } catch (e) {
-      console.warn('Error saving diagram:', e);
-    }
-  };
-
   // Periodic and Event-Driven State Saver
   const handleTimeUpdate = (seconds: number) => {
     setCurrentTime(seconds);
@@ -387,7 +324,6 @@ export const App: React.FC = () => {
       setCurrentVideo(meta);
       setCurrentTime(0);
       setAutoPausedAt(null);
-      updateCurrentDiagram(null);
 
       // Add to recent videos history (max 5 items)
       const newItem: RecentVideoItem = {
@@ -437,7 +373,6 @@ export const App: React.FC = () => {
     const resumeTime = item.lastTimestamp || 0;
     setCurrentTime(resumeTime);
     setAutoPausedAt(null);
-    updateCurrentDiagram(null);
 
     // Update active session
     localStorage.setItem(STORAGE_ACTIVE_SESSION, JSON.stringify({
@@ -479,110 +414,7 @@ export const App: React.FC = () => {
     savePlaybackState(currentVideo, seconds);
   };
 
-  // Canvas Operations
-  const handleAddCanvasNode = (node: CanvasNode) => {
-    updateCanvasNodes(prev => [...prev, node]);
-  };
-
-  const handleDeleteCanvasNode = (id: string) => {
-    updateCanvasNodes(prev => prev.filter(n => n.id !== id));
-  };
-
-  const handleUpdateCanvasNodePos = (id: string, x: number, y: number) => {
-    updateCanvasNodes(prev => prev.map(n => n.id === id ? { ...n, x, y } : n));
-  };
-
-  // Ask Question on Canvas
-  const handleAskCanvasQuestion = async (
-    question: string,
-    canvasBase64?: string,
-    coords?: { x: number; y: number; width?: number; height?: number }
-  ) => {
-    setIsCheckingDrawing(true);
-    setIsPaused(true);
-    setAutoPausedAt(currentTime);
-
-    try {
-      const activeChapter = findActiveChapter(currentVideo?.chapters, currentTime);
-
-      const coveredChapters = currentVideo?.chapters
-        ?.filter(ch => ch.startTime <= currentTime)
-        .map(ch => ch.title) || [];
-
-      const nearbyTranscript = currentVideo?.transcript
-        ?.filter(t => t.start <= currentTime + 60 && t.start + (t.duration || 15) >= currentTime - 90)
-        .map(t => `[${Math.floor(t.start/60)}:${String(Math.floor(t.start%60)).padStart(2,'0')}] ${t.text}`)
-        .join(' ') || '';
-
-      const frameUrl = currentVideo?.thumbnail || (currentVideo?.id ? `https://i.ytimg.com/vi/${currentVideo.id}/hqdefault.jpg` : undefined);
-
-      const resp = await fetch('/api/tutor/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question,
-          mode: 'sketch',
-          answerDepth,
-          timestamp: currentTime,
-          videoId: currentVideo?.id,
-          frameUrl,
-          videoTitle: currentVideo?.title || 'Lecture',
-          channel: currentVideo?.channel || 'Instructor',
-          chapters: currentVideo?.chapters || [],
-          coveredHistory: coveredChapters,
-          nearbyTranscript,
-          activeChapter,
-          studentDrawingBase64: canvasBase64,
-          canvasCoordinates: coords
-        })
-      });
-
-      if (resp.ok) {
-        const data = await resp.json() as any;
-
-        const assistantMsg: TutorMessage = {
-          id: `msg-${Date.now()}-reply`,
-          role: 'assistant',
-          content: data.content || 'Here is the step-by-step breakdown on your whiteboard.',
-          timestamp: currentTime,
-          createdAt: new Date(),
-          mode: 'sketch',
-          answerDepth,
-          diagram: data.diagram?.svgMarkup ? data.diagram : null,
-          quiz: data.quiz,
-          suggestedPrompts: data.suggestedPrompts
-        };
-        updateMessages(prev => [...prev, assistantMsg]);
-
-        if (data.diagram && data.diagram.svgMarkup) {
-          updateCurrentDiagram(data.diagram);
-        } else {
-          updateCurrentDiagram(null);
-        }
-
-        if (data.canvasNode) {
-          const newNode: CanvasNode = {
-            id: data.canvasNode.id || `node-${Date.now()}`,
-            type: 'ai_answer',
-            x: data.canvasNode.x || (coords?.x ? coords.x + 160 : 400),
-            y: data.canvasNode.y || (coords?.y ? coords.y - 20 : 150),
-            title: data.canvasNode.title || (answerDepth === 'quick' ? 'Quick Takeaway' : 'My Tutor Derivation'),
-            content: data.canvasNode.content || data.content,
-            diagramSvg: data.diagram?.svgMarkup || undefined,
-            timestamp: currentTime,
-            createdAt: Date.now()
-          };
-          updateCanvasNodes(prev => [...prev, newNode]);
-        }
-      }
-    } catch (err) {
-      console.error('Error in canvas question:', err);
-    } finally {
-      setIsCheckingDrawing(false);
-    }
-  };
-
-  // Send Chat Message
+  // Send Chat Message with Full Conversation History & Video Context
   const handleSendMessage = async (text: string, mode: TutorMode) => {
     const userMsg: TutorMessage = {
       id: `msg-${Date.now()}`,
@@ -594,7 +426,9 @@ export const App: React.FC = () => {
       answerDepth
     };
 
-    updateMessages(prev => [...prev, userMsg]);
+    // Construct conversation history for multi-turn reasoning
+    const updatedHistory = [...messages, userMsg];
+    updateMessages(updatedHistory);
     setIsLoadingTutor(true);
 
     try {
@@ -611,6 +445,11 @@ export const App: React.FC = () => {
 
       const frameUrl = currentVideo?.thumbnail || (currentVideo?.id ? `https://i.ytimg.com/vi/${currentVideo.id}/hqdefault.jpg` : undefined);
 
+      const chatHistoryForBackend = updatedHistory.slice(-8).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+
       const resp = await fetch('/api/tutor/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -626,7 +465,8 @@ export const App: React.FC = () => {
           chapters: currentVideo?.chapters || [],
           coveredHistory: coveredChapters,
           nearbyTranscript,
-          activeChapter
+          activeChapter,
+          chatHistory: chatHistoryForBackend
         })
       });
 
@@ -648,13 +488,6 @@ export const App: React.FC = () => {
       };
 
       updateMessages(prev => [...prev, assistantMsg]);
-
-      // ONLY show whiteboard diagram if a valid diagram was explicitly generated; otherwise clear it
-      if (data.diagram && data.diagram.svgMarkup) {
-        updateCurrentDiagram(data.diagram);
-      } else {
-        updateCurrentDiagram(null);
-      }
     } catch (err) {
       console.error('Error querying tutor:', err);
       updateMessages(prev => [
@@ -717,27 +550,6 @@ export const App: React.FC = () => {
     handleSendMessage(question, 'blackboard_ocr');
   };
 
-  // Sizing & Reordering Handlers
-  const handleMovePanel = (panel: PanelKey, direction: 'left' | 'right') => {
-    const idx = panelOrder.indexOf(panel);
-    if (idx === -1) return;
-    const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= panelOrder.length) return;
-
-    const newOrder = [...panelOrder];
-    const [moved] = newOrder.splice(idx, 1);
-    newOrder.splice(targetIdx, 0, moved);
-    setPanelOrder(newOrder);
-
-    try {
-      localStorage.setItem(STORAGE_LAYOUT_CONFIG, JSON.stringify({
-        panelOrder: newOrder,
-        panelWidths,
-        activeLayoutPreset
-      }));
-    } catch {}
-  };
-
   const handleToggleMinimize = (panel: PanelKey) => {
     setMinimizedPanels(prev => ({
       ...prev,
@@ -753,30 +565,26 @@ export const App: React.FC = () => {
       setMaximizedPanel(null);
     } else {
       setMaximizedPanel(panel);
-      setMinimizedPanels(prev => ({ ...prev, [panel]: false }));
+      setMinimizedPanels({ video: false, chat: false });
     }
   };
 
   const handleSelectLayoutPreset = (preset: StudioLayoutPreset) => {
     setActiveLayoutPreset(preset);
     setMaximizedPanel(null);
-    setMinimizedPanels({ video: false, whiteboard: false, chat: false });
+    setMinimizedPanels({ video: false, chat: false });
 
-    let newWidths = { video: 34, whiteboard: 41, chat: 25 };
-    if (preset === 'canvas_focus') {
-      newWidths = { video: 20, whiteboard: 60, chat: 20 };
-    } else if (preset === 'cinema_focus') {
-      newWidths = { video: 55, whiteboard: 25, chat: 20 };
-    } else if (preset === 'chat_focus') {
-      newWidths = { video: 25, whiteboard: 30, chat: 45 };
+    let newWidths = { video: 58, chat: 42 };
+    if (preset === 'cinema') {
+      newWidths = { video: 72, chat: 28 };
+    } else if (preset === 'chat') {
+      newWidths = { video: 40, chat: 60 };
     }
 
-    setPanelOrder(['video', 'whiteboard', 'chat']);
     setPanelWidths(newWidths);
 
     try {
       localStorage.setItem(STORAGE_LAYOUT_CONFIG, JSON.stringify({
-        panelOrder: ['video', 'whiteboard', 'chat'],
         panelWidths: newWidths,
         activeLayoutPreset: preset
       }));
@@ -784,49 +592,44 @@ export const App: React.FC = () => {
   };
 
   const handleResetLayout = () => {
-    handleSelectLayoutPreset('studio');
+    handleSelectLayoutPreset('balanced');
   };
 
-  // Draggable Splitters
-  const startResizing = (splitterIdx: number, clientX: number) => {
-    setResizingSplitterIdx(splitterIdx);
+  // Draggable Splitter
+  const startResizing = (clientX: number) => {
+    setIsResizing(true);
     setDragStartX(clientX);
     setInitialWidths({ ...panelWidths });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (resizingSplitterIdx === null || !containerRef.current) return;
+    if (!isResizing || !containerRef.current) return;
 
     const containerWidth = containerRef.current.clientWidth;
     const deltaX = e.clientX - dragStartX;
     const deltaPct = (deltaX / containerWidth) * 100;
 
-    const leftKey = panelOrder[resizingSplitterIdx];
-    const rightKey = panelOrder[resizingSplitterIdx + 1];
-
-    const newLeftWidth = Math.max(12, Math.min(75, initialWidths[leftKey] + deltaPct));
-    const newRightWidth = Math.max(12, Math.min(75, initialWidths[rightKey] - deltaPct));
+    const newVideoWidth = Math.max(25, Math.min(80, initialWidths.video + deltaPct));
+    const newChatWidth = Math.max(20, Math.min(75, 100 - newVideoWidth));
 
     const updatedWidths = {
-      ...panelWidths,
-      [leftKey]: Number(newLeftWidth.toFixed(1)),
-      [rightKey]: Number(newRightWidth.toFixed(1))
+      video: Number(newVideoWidth.toFixed(1)),
+      chat: Number(newChatWidth.toFixed(1))
     };
 
     setPanelWidths(updatedWidths);
   };
 
   const stopResizing = () => {
-    if (resizingSplitterIdx !== null) {
+    if (isResizing) {
       try {
         localStorage.setItem(STORAGE_LAYOUT_CONFIG, JSON.stringify({
-          panelOrder,
           panelWidths,
           activeLayoutPreset
         }));
       } catch {}
     }
-    setResizingSplitterIdx(null);
+    setIsResizing(false);
   };
 
   // Flex / Width computation per panel
@@ -841,7 +644,7 @@ export const App: React.FC = () => {
       return { width: '48px', flex: '0 0 48px' };
     }
 
-    const widthPct = panelWidths[key] || 33.3;
+    const widthPct = panelWidths[key] || (key === 'video' ? 58 : 42);
     return { width: `${widthPct}%`, flex: `${widthPct} ${widthPct} 0%` };
   };
 
@@ -872,113 +675,84 @@ export const App: React.FC = () => {
         onResetLayout={handleResetLayout}
       />
 
-      {/* Main Studio Viewport Workspace: Zero Global Page Scroll */}
+      {/* Main Viewport: Clean 2-Column Responsive Split (Video Left, Chat Right) */}
       <main 
         ref={containerRef}
         className="flex-1 w-full h-[calc(100vh-52px)] overflow-hidden flex flex-row p-2 gap-0 relative"
       >
-        {panelOrder.map((panelKey, idx) => {
-          const isFirst = idx === 0;
-          const isLast = idx === panelOrder.length - 1;
+        {/* 1. Video Player Column */}
+        <div 
+          style={getPanelStyle('video')}
+          className="h-full overflow-hidden transition-all duration-150 px-1"
+        >
+          {currentVideo && (
+            <VideoPlayer
+              video={currentVideo}
+              currentTime={currentTime}
+              onTimeUpdate={handleTimeUpdate}
+              isPaused={isPaused}
+              onPause={() => {
+                setIsPaused(true);
+                savePlaybackState(currentVideo, currentTime);
+              }}
+              onResume={handleResumeVideo}
+              onCaptureFrame={handleCaptureFrame}
+              onSeekTo={handleSeekTo}
+              activeChapter={activeChapter}
+              autoPausedAt={autoPausedAt}
+              isMaximized={maximizedPanel === 'video'}
+              onToggleMaximize={() => handleToggleMaximize('video')}
+              isMinimized={minimizedPanels.video}
+              onToggleMinimize={() => handleToggleMinimize('video')}
+              canMoveLeft={false}
+              canMoveRight={false}
+              onMoveLeft={() => {}}
+              onMoveRight={() => {}}
+            />
+          )}
+        </div>
 
-          return (
-            <React.Fragment key={panelKey}>
-              {/* Splitter Resize Handle */}
-              {idx > 0 && !maximizedPanel && (
-                <div
-                  onMouseDown={(e) => startResizing(idx - 1, e.clientX)}
-                  onDoubleClick={() => handleResetLayout()}
-                  className={`resizer-splitter h-full flex items-center justify-center group ${
-                    resizingSplitterIdx === idx - 1 ? 'resizing' : ''
-                  }`}
-                  title="Drag to resize columns • Double-click to reset"
-                >
-                  <div className="w-1 h-8 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors" />
-                </div>
-              )}
+        {/* Interactive Splitter Resize Handle */}
+        {!maximizedPanel && !minimizedPanels.video && !minimizedPanels.chat && (
+          <div
+            onMouseDown={(e) => startResizing(e.clientX)}
+            onDoubleClick={() => handleResetLayout()}
+            className={`resizer-splitter h-full flex items-center justify-center group ${
+              isResizing ? 'resizing' : ''
+            }`}
+            title="Drag to resize Video and Chat · Double-click to reset"
+          >
+            <div className="w-1 h-10 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors" />
+          </div>
+        )}
 
-              {/* Panel Container */}
-              <div 
-                style={getPanelStyle(panelKey)}
-                className="h-full overflow-hidden transition-all duration-150 px-1"
-              >
-                {panelKey === 'video' && currentVideo && (
-                  <VideoPlayer
-                    video={currentVideo}
-                    currentTime={currentTime}
-                    onTimeUpdate={handleTimeUpdate}
-                    isPaused={isPaused}
-                    onPause={() => {
-                      setIsPaused(true);
-                      savePlaybackState(currentVideo, currentTime);
-                    }}
-                    onResume={handleResumeVideo}
-                    onCaptureFrame={handleCaptureFrame}
-                    onSeekTo={handleSeekTo}
-                    activeChapter={activeChapter}
-                    autoPausedAt={autoPausedAt}
-                    isMaximized={maximizedPanel === 'video'}
-                    onToggleMaximize={() => handleToggleMaximize('video')}
-                    isMinimized={minimizedPanels.video}
-                    onToggleMinimize={() => handleToggleMinimize('video')}
-                    canMoveLeft={!isFirst}
-                    canMoveRight={!isLast}
-                    onMoveLeft={() => handleMovePanel('video', 'left')}
-                    onMoveRight={() => handleMovePanel('video', 'right')}
-                    isFloatingPiP={maximizedPanel === 'whiteboard'}
-                  />
-                )}
-
-                {panelKey === 'whiteboard' && (
-                  <WhiteboardCanvas
-                    currentDiagram={currentDiagram}
-                    onCloseDiagram={() => updateCurrentDiagram(null)}
-                    canvasNodes={canvasNodes}
-                    onAddCanvasNode={handleAddCanvasNode}
-                    onDeleteCanvasNode={handleDeleteCanvasNode}
-                    onUpdateCanvasNodePos={handleUpdateCanvasNodePos}
-                    onAskCanvasQuestion={handleAskCanvasQuestion}
-                    isCheckingDrawing={isCheckingDrawing}
-                    activeTopic={activeChapter?.title}
-                    isMaximized={maximizedPanel === 'whiteboard'}
-                    onToggleMaximize={() => handleToggleMaximize('whiteboard')}
-                    isMinimized={minimizedPanels.whiteboard}
-                    onToggleMinimize={() => handleToggleMinimize('whiteboard')}
-                    canMoveLeft={!isFirst}
-                    canMoveRight={!isLast}
-                    onMoveLeft={() => handleMovePanel('whiteboard', 'left')}
-                    onMoveRight={() => handleMovePanel('whiteboard', 'right')}
-                    currentTime={currentTime}
-                  />
-                )}
-
-                {panelKey === 'chat' && (
-                  <TutorChat
-                    messages={messages}
-                    onSendMessage={handleSendMessage}
-                    isLoading={isLoadingTutor}
-                    currentTime={currentTime}
-                    onTypingStart={handleTypingStart}
-                    onSeekTo={handleSeekTo}
-                    currentMode={currentMode}
-                    onChangeMode={setCurrentMode}
-                    answerDepth={answerDepth}
-                    onChangeAnswerDepth={handleUpdateAnswerDepth}
-                    onClearChat={handleClearChat}
-                    isMaximized={maximizedPanel === 'chat'}
-                    onToggleMaximize={() => handleToggleMaximize('chat')}
-                    isMinimized={minimizedPanels.chat}
-                    onToggleMinimize={() => handleToggleMinimize('chat')}
-                    canMoveLeft={!isFirst}
-                    canMoveRight={!isLast}
-                    onMoveLeft={() => handleMovePanel('chat', 'left')}
-                    onMoveRight={() => handleMovePanel('chat', 'right')}
-                  />
-                )}
-              </div>
-            </React.Fragment>
-          );
-        })}
+        {/* 2. MyTutor AI Chat Column */}
+        <div 
+          style={getPanelStyle('chat')}
+          className="h-full overflow-hidden transition-all duration-150 px-1"
+        >
+          <TutorChat
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            isLoading={isLoadingTutor}
+            currentTime={currentTime}
+            onTypingStart={handleTypingStart}
+            onSeekTo={handleSeekTo}
+            currentMode={currentMode}
+            onChangeMode={setCurrentMode}
+            answerDepth={answerDepth}
+            onChangeAnswerDepth={handleUpdateAnswerDepth}
+            onClearChat={handleClearChat}
+            isMaximized={maximizedPanel === 'chat'}
+            onToggleMaximize={() => handleToggleMaximize('chat')}
+            isMinimized={minimizedPanels.chat}
+            onToggleMinimize={() => handleToggleMinimize('chat')}
+            canMoveLeft={false}
+            canMoveRight={false}
+            onMoveLeft={() => {}}
+            onMoveRight={() => {}}
+          />
+        </div>
       </main>
 
       {/* Blackboard OCR Modal */}

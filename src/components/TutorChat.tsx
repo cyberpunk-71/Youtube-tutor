@@ -299,9 +299,9 @@ export const TutorChat: React.FC<TutorChatProps> = ({
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-1">
               <Sparkles className="w-6 h-6" />
             </div>
-            <p className="font-semibold text-xs text-slate-700">Pause anywhere in the lecture and ask.</p>
-            <p className="text-[11px] text-slate-400 max-w-[220px]">
-              My Tutor analyzes that exact moment and draws step-by-step on your whiteboard.
+            <p className="font-semibold text-xs text-slate-700">Pause anywhere in the lecture to ask.</p>
+            <p className="text-[11px] text-slate-400 max-w-[240px]">
+              My Tutor analyzes the on-screen blackboard, reads handwritten formulas, and answers your questions with full conversation memory.
             </p>
           </div>
         ) : (
@@ -389,6 +389,24 @@ export const TutorChat: React.FC<TutorChatProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Suggested Follow-up Prompt Chips */}
+                {msg.role === 'assistant' && msg.suggestedPrompts && msg.suggestedPrompts.length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex flex-wrap gap-1.5">
+                    {msg.suggestedPrompts.map((prompt, pIdx) => (
+                      <button
+                        key={pIdx}
+                        onClick={() => onSendMessage(prompt, currentMode)}
+                        disabled={isLoading}
+                        className="text-left px-2.5 py-1 rounded-lg bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 text-blue-700 text-[10px] font-medium transition-colors flex items-center gap-1.5 group cursor-pointer shadow-2xs"
+                        title="Click to ask this follow-up"
+                      >
+                        <Sparkles className="w-2.5 h-2.5 text-blue-600 group-hover:scale-110 transition-transform shrink-0" />
+                        <span>{prompt}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -397,7 +415,7 @@ export const TutorChat: React.FC<TutorChatProps> = ({
         {isLoading && (
           <div className="flex items-center gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 animate-pulse w-max">
             <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-spin" />
-            <span>My Tutor is analyzing lecture context &amp; drawing on whiteboard...</span>
+            <span>My Tutor is inspecting the on-screen blackboard &amp; reasoning...</span>
           </div>
         )}
 
