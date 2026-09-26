@@ -85,6 +85,7 @@ app.post('/api/tutor/ask', async (req, res) => {
       coveredHistory,
       nearbyTranscript,
       activeChapter,
+      activeMicroScene,
       chatHistory,
       studentDrawingBase64,
       blackboardFrameBase64,
@@ -98,7 +99,7 @@ app.post('/api/tutor/ask', async (req, res) => {
 
     const reply = await askTutor({
       question: question || 'Explain my drawing and whether my solution is correct',
-      mode: mode || 'socratic',
+      mode: mode || 'explain',
       answerDepth: answerDepth || 'medium',
       timestamp: Number(timestamp) || 0,
       videoId,
@@ -108,6 +109,7 @@ app.post('/api/tutor/ask', async (req, res) => {
       coveredHistory: coveredHistory || [],
       nearbyTranscript: nearbyTranscript || '',
       activeChapter: activeChapter || null,
+      activeMicroScene: activeMicroScene || null,
       chatHistory: Array.isArray(chatHistory) ? chatHistory : [],
       studentDrawingBase64,
       blackboardFrameBase64,

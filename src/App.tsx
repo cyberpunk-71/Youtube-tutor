@@ -3,7 +3,7 @@ import { Navbar, type StudioLayoutPreset } from './components/Navbar';
 import { VideoPlayer } from './components/VideoPlayer';
 import { TutorChat } from './components/TutorChat';
 import { BlackboardInspector } from './components/BlackboardInspector';
-import { findActiveChapter } from './utils/chapterHelper';
+import { findActiveChapter, getLiveSceneState } from './utils/chapterHelper';
 import type { 
   VideoMetadata, VideoChapter, TutorMessage, InteractiveDiagram, 
   BlackboardAnalysis, TutorMode, BlackboardBoundingBox,
@@ -359,7 +359,8 @@ export const App: React.FC = () => {
 
   // Handle Selecting a Recent Video (Jump to exact left-off timestamp)
   const handleSelectRecentVideo = (item: RecentVideoItem) => {
-    const targetVideo = item.videoMetadata || library.find(l => l.id === item.id) || {
+    const freshLibVideo = library.find(l => l.id === item.id);
+    const targetVideo = freshLibVideo || item.videoMetadata || {
       id: item.id,
       url: item.url,
       title: item.title,
@@ -433,6 +434,7 @@ export const App: React.FC = () => {
 
     try {
       const activeChapter = findActiveChapter(currentVideo?.chapters, currentTime);
+      const activeMicroScene = getLiveSceneState(currentVideo?.chapters, currentVideo?.transcript, currentTime);
 
       const coveredChapters = currentVideo?.chapters
         ?.filter(ch => ch.startTime <= currentTime)
@@ -466,6 +468,7 @@ export const App: React.FC = () => {
           coveredHistory: coveredChapters,
           nearbyTranscript,
           activeChapter,
+          activeMicroScene,
           chatHistory: chatHistoryForBackend
         })
       });
@@ -664,6 +667,13 @@ export const App: React.FC = () => {
           setCurrentTime(0);
           setAutoPausedAt(null);
           savePlaybackState(v, 0);
+          try {
+            localStorage.setItem(STORAGE_ACTIVE_SESSION, JSON.stringify({
+              video: v,
+              timestamp: 0,
+              lastWatchedAt: Date.now()
+            }));
+          } catch {}
         }}
         presets={library}
         recentVideos={recentVideos}

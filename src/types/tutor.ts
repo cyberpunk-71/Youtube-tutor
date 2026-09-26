@@ -11,6 +11,16 @@ export interface VideoMetadata {
   transcript?: TranscriptItem[];
 }
 
+export interface VideoMicroScene {
+  startTime: number;
+  endTime: number;
+  stepTitle: string;
+  blackboardText: string;
+  equations: string[];
+  activeStepNumber?: number;
+  totalStepsInChapter?: number;
+}
+
 export interface VideoChapter {
   id: string;
   chapterNumber: number;
@@ -21,6 +31,7 @@ export interface VideoChapter {
   blackboardContent?: string;
   equations?: string[];
   keyConcepts?: string[];
+  microScenes?: VideoMicroScene[];
 }
 
 export interface TranscriptItem {

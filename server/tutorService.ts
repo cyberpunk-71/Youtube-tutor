@@ -18,6 +18,7 @@ export interface AskTutorParams {
   coveredHistory?: string[];
   nearbyTranscript?: string;
   activeChapter?: any;
+  activeMicroScene?: any;
   chatHistory?: ChatHistoryTurn[];
   studentDrawingBase64?: string;
   blackboardFrameBase64?: string;
@@ -54,6 +55,7 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     coveredHistory = [],
     nearbyTranscript = '',
     activeChapter: customActiveChapter,
+    activeMicroScene,
     chatHistory = [],
     studentDrawingBase64,
     blackboardFrameBase64,
@@ -72,6 +74,12 @@ export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMes
     ? 'ANSWER DEPTH: DETAILED. Provide a comprehensive, rigorous university-level explanation with full step-by-step mathematical proofs, underlying theorems, calculation steps, edge cases, and deep conceptual breakdown.'
     : 'ANSWER DEPTH: MEDIUM. Provide a balanced, clear explanation (2-3 focused paragraphs) highlighting intuition, formula derivation, and connection to the screen.';
 
+  const activeFocusTitle = activeMicroScene?.stepTitle || activeChapter?.title || 'Current Lecture Demonstration';
+  const activeChalkboardNotes = activeMicroScene?.blackboardNotes || activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen';
+  const activeEquations = (activeMicroScene?.equations && activeMicroScene.equations.length > 0)
+    ? activeMicroScene.equations
+    : (activeChapter?.equations || []);
+
   let systemPrompt = '';
 
   if (isQuizMode) {
@@ -82,13 +90,16 @@ The student has watched "${videoTitle}" by ${channel} up to timestamp ${currentM
 🚨 TIME-BOUNDED WATCHED MATERIAL (0:00 to ${currentMinSec} ONLY)
 ================================================================================
 - Current Watched Position: ${currentMinSec} (${timestamp}s)
-- Active Chapter at this second: "${activeChapter?.title || 'Current Section'}"
+- Active Chapter: "${activeChapter?.title || 'Current Section'}"
+- Active Demonstration at this second: "${activeFocusTitle}"
+- Chalkboard Equations & Notes at this second:
+  ${activeChalkboardNotes}
+- Visible Formulas on Screen:
+  ${activeEquations.length > 0 ? activeEquations.join(', ') : 'None'}
 - Topics Covered SO FAR from 0:00 to ${currentMinSec}:
   ${coveredHistory.length > 0 ? coveredHistory.join(' -> ') : (activeChapter?.title || 'Introduction')}
-- Visible Formulas on Screen:
-  ${activeChapter?.equations?.length ? activeChapter.equations.join(', ') : 'None'}
-- Spoken Dialogue in recent seconds:
-  "${nearbyTranscript || activeChapter?.summary || 'N/A'}"
+- Spoken Dialogue at this second:
+  "${nearbyTranscript || activeMicroScene?.activeSpokenLine || activeChapter?.summary || 'N/A'}"
 
 ================================================================================
 MANDATORY QUIZ RULES:
@@ -97,7 +108,7 @@ MANDATORY QUIZ RULES:
    - ONLY test the student on concepts, equations, calculations, and ideas presented between 0:00 and ${currentMinSec}.
    - NEVER ask about topics, chapters, formulas, or theorems that occur AFTER ${currentMinSec} in this video.
 2. HIGH-YIELD MULTIPLE CHOICE QUIZ:
-   - Create a sharp, engaging multiple-choice question in the "quiz" field.
+   - Create a sharp, engaging multiple-choice question in the "quiz" field based on the active scene and watched material.
    - Provide exactly 4 options in "options" (Option A, B, C, D) with LaTeX math where appropriate.
    - Set "correctAnswerIndex" (0, 1, 2, or 3).
    - Provide a clear, educational "explanation" explaining why the correct choice is true and clarifying any common mistakes.
@@ -136,15 +147,13 @@ You are tutoring a student watching "${videoTitle}" by ${channel}.
 - Video Title: "${videoTitle}" (${channel})
 - Paused Timestamp: ${currentMinSec} (${timestamp}s)
 - Current Lecture Chapter: "${activeChapter?.title || 'Current Section'}"
-- Chapter Summary & Focus: ${activeChapter?.summary || 'Active topic discussion'}
-- ON-SCREEN BLACKBOARD CHALK NOTES & VISUAL DEMONSTRATION:
-  ${activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen'}
+- ACTIVE ON-SCREEN DEMONSTRATION & STEP: "${activeFocusTitle}"
+- ON-SCREEN BLACKBOARD CHALK NOTES & ARITHMETIC AT THIS SECOND:
+  ${activeChalkboardNotes}
 - VISIBLE FORMULAS & NUMBERS ON SCREEN RIGHT NOW:
-  ${activeChapter?.equations?.length ? activeChapter.equations.join(', ') : 'None'}
-- KEY CONCEPTS ACTIVELY BEING DEMONSTRATED:
-  ${activeChapter?.keyConcepts?.join(', ') || 'Core principles'}
+  ${activeEquations.length > 0 ? activeEquations.join(', ') : 'None'}
 - PROFESSOR'S SPOKEN WORDS AT THIS MOMENT:
-  "${nearbyTranscript || activeChapter?.summary || 'N/A'}"
+  "${nearbyTranscript || activeMicroScene?.activeSpokenLine || activeChapter?.summary || 'N/A'}"
 - PRECEDING TOPICS IN THIS LECTURE:
   ${coveredHistory.join(' -> ') || 'Beginning of lecture'}
 
@@ -221,8 +230,8 @@ Return your response strictly as a valid JSON object matching this schema:
     }));
 
   const userPromptText = isQuizMode
-    ? `[Quiz Request at ${currentMinSec} in "${videoTitle}"]\nTopics covered so far: ${coveredHistory.join(' -> ') || activeChapter?.title || 'Lecture'}\nPlease generate an interactive multiple choice quiz testing only what was watched up to ${currentMinSec}.`
-    : `[Lecture Scene & Blackboard at ${currentMinSec} in "${videoTitle}"]\nSpoken Words at this second: "${nearbyTranscript || 'N/A'}"\nActive Chapter: "${activeChapter?.title || 'Current Section'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the chalkboard state, read the visible formulas and numbers at ${currentMinSec}, consider our prior conversation, and answer directly.`;
+    ? `[Quiz Request at ${currentMinSec} in "${videoTitle}"]\nActive Step: "${activeFocusTitle}"\nTopics covered so far: ${coveredHistory.join(' -> ') || activeChapter?.title || 'Lecture'}\nPlease generate an interactive multiple choice quiz testing only what was watched up to ${currentMinSec}.`
+    : `[Lecture Scene & Blackboard at ${currentMinSec} in "${videoTitle}"]\nActive Step / Focus: "${activeFocusTitle}"\nVisible Formulas on Screen: ${activeEquations.join(', ') || 'None'}\nChalkboard Notes at this second:\n${activeChalkboardNotes}\nSpoken Words at this second: "${nearbyTranscript || activeMicroScene?.activeSpokenLine || 'N/A'}"\nQuestion: "${question}" (Answer depth: ${answerDepth})\n\nPlease inspect the active chalkboard step and arithmetic at ${currentMinSec}, consider our prior conversation, and answer directly.`;
 
   const multimodalMessages: any[] = [
     { role: 'system', content: systemPrompt },
@@ -373,7 +382,7 @@ Return your response strictly as a valid JSON object matching this schema:
   if (openRouterReply) return openRouterReply;
 
   // Dynamic Context-Aware Fallback (No hardcoded diagrams or static canned answers)
-  return generateDynamicHeuristicReply(question, timestamp, videoTitle, activeChapter, nearbyTranscript, isQuizMode);
+  return generateDynamicHeuristicReply(question, timestamp, videoTitle, activeChapter, nearbyTranscript, isQuizMode, activeMicroScene);
 }
 
 function parseAIResponse(rawText: string, question: string, timestamp: number, canvasCoordinates?: any): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
@@ -463,13 +472,17 @@ function generateDynamicHeuristicReply(
   videoTitle: string,
   activeChapter?: any,
   nearbyTranscript?: string,
-  isQuizMode: boolean = false
+  isQuizMode: boolean = false,
+  activeMicroScene?: any
 ): Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> } {
   const minSec = `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`;
-  const topicTitle = activeChapter?.title || 'Active Lecture Concept';
-  const blackboardNote = activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen.';
-  const equationsList = activeChapter?.equations && activeChapter.equations.length > 0
-    ? activeChapter.equations.map((eq: string) => `$$${eq}$$`).join('\n')
+  const topicTitle = activeMicroScene?.stepTitle || activeChapter?.title || 'Active Lecture Concept';
+  const blackboardNote = activeMicroScene?.blackboardNotes || activeChapter?.blackboardContent || 'Equations and live visual demonstrations on screen.';
+  const equationsToUse = (activeMicroScene?.equations && activeMicroScene.equations.length > 0)
+    ? activeMicroScene.equations
+    : (activeChapter?.equations || []);
+  const equationsList = equationsToUse.length > 0
+    ? equationsToUse.map((eq: string) => `$$${eq}$$`).join('\n')
     : '';
 
   const spokenDialogue = nearbyTranscript ? `\n\n> **Spoken Context**: *"${nearbyTranscript}"*` : '';
