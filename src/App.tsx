@@ -434,6 +434,7 @@ export const App: React.FC = () => {
 
     try {
       const activeChapter = findActiveChapter(currentVideo?.chapters, currentTime);
+      const activeMicroScene = getLiveSceneState(currentVideo?.chapters, currentVideo?.transcript, currentTime);
 
       const coveredChapters = currentVideo?.chapters
         ?.filter(ch => ch.startTime <= currentTime)
@@ -468,6 +469,7 @@ export const App: React.FC = () => {
           coveredHistory: coveredChapters,
           nearbyTranscript,
           activeChapter,
+          activeMicroScene,
           chatHistory: chatHistoryForBackend
         })
       });
