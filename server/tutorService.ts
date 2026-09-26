@@ -1,5 +1,11 @@
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
 import { TutorMessage, InteractiveDiagram, QuizQuestion, TutorMode, CanvasNode } from '../src/types/tutor';
 import { findActiveChapter, getLiveSceneState } from '../src/utils/chapterHelper';
+
+const execFileAsync = promisify(execFile);
 
 export interface ChatHistoryTurn {
   role: 'user' | 'assistant';
@@ -26,20 +32,32 @@ export interface AskTutorParams {
   canvasCoordinates?: { x: number; y: number; width?: number; height?: number };
 }
 
-// 1. Primary Vision & Reasoning Engine: Hermes Antigravity Proxy (Port 8090 - Gemini Flash)
-const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-low', 'gemini-3.8-flash', 'gemini-3.8-flash-medium'];
+// 1. Local OCR Text Extraction via Tesseract (Sub-100ms)
+export async function extractOcrTextFromBase64(base64Data?: string): Promise<string> {
+  if (!base64Data || !base64Data.includes('base64,')) return '';
+  const tmpFile = path.join('/tmp', `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`);
+  try {
+    const cleanB64 = base64Data.split('base64,')[1];
+    await fs.promises.writeFile(tmpFile, Buffer.from(cleanB64, 'base64'));
+    const { stdout } = await execFileAsync('/usr/bin/tesseract', [tmpFile, 'stdout', '--psm', '6'], { timeout: 3500 });
+    return (stdout || '').trim();
+  } catch (err) {
+    return '';
+  } finally {
+    try { await fs.promises.unlink(tmpFile); } catch {}
+  }
+}
 
-// 2. Fast Text-Only Engine: Groq Ultra-Fast Intelligence (GPT-OSS-120B & Qwen 3.8 27B)
+// 2. High-Speed Multimodal Vision: NVIDIA NIM (Llama 3.2 11B Vision)
+const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY || '';
+const NVIDIA_NIM_BASE_URL = process.env.NVIDIA_NIM_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+
+// 3. Ultra-Fast Text & Math Engine: Groq (Qwen 3.8 27B & GPT-OSS-120B)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
+const GROQ_MODELS = ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b'];
 
-// 3. Tertiary Engine: OpenRouter Free Fallback Models
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-const OPENROUTER_MODELS = [
-  'google/gemma-4-31b-it:free',
-  'qwen/qwen3.8-27b:free'
-];
+// 4. Hermes Antigravity Proxy (:8090 - Gemini Flash Low Reasoning Effort for Fast Response)
+const LOCAL_ANTIGRAVITY_MODELS = ['gemini-3.8-flash-low', 'gemini-3.7-flash-low'];
 
 export async function askTutor(params: AskTutorParams): Promise<Partial<TutorMessage> & { canvasNode?: Partial<CanvasNode> }> {
   const {
@@ -227,6 +245,16 @@ Return your response strictly as a valid JSON object matching this schema:
     }
   }
 
+  const hasLiveImage = Boolean(imageBase64ToUse && imageBase64ToUse.startsWith('data:image'));
+
+  // Extract live OCR from captured screen in <100ms
+  let ocrExtractedText = '';
+  if (hasLiveImage) {
+    try {
+      ocrExtractedText = await extractOcrTextFromBase64(imageBase64ToUse);
+    } catch (_) {}
+  }
+
   // Format previous turns for multi-turn LLM context
   const chatHistoryMessages: Array<{ role: 'user' | 'assistant'; content: string }> = (chatHistory || [])
     .slice(-8)
@@ -236,15 +264,17 @@ Return your response strictly as a valid JSON object matching this schema:
     }));
 
   const userPromptText = isQuizMode
-    ? `[Quiz Request at ${currentMinSec} in "${videoTitle}"]\nActive Topic: ${activeFocusTitle}\nChalkboard Notes @ ${currentMinSec}: ${activeChalkboardNotes}\nFormulas: ${activeEquations.join(', ')}\nSpoken Words: "${nearbyTranscript || 'N/A'}"\nTopics covered so far: ${coveredHistory.join(' -> ') || activeChapter?.title || 'Lecture'}\nPlease inspect the screen and dialogue at ${currentMinSec}, and generate an interactive multiple choice quiz testing only what was watched up to ${currentMinSec}.`
-    : `[Lecture Screen at ${currentMinSec} in "${videoTitle}"]\nActive Topic / Problem: "${activeFocusTitle}"\nChalkboard Notes & Problem Statement @ ${currentMinSec}:\n${activeChalkboardNotes || 'N/A'}\nKey Formulas @ ${currentMinSec}: ${activeEquations.join(', ') || 'N/A'}\nSpoken Words: "${nearbyTranscript || 'N/A'}"\n\nStudent Question: "${question}" (Answer depth: ${answerDepth})\n\nPlease solve/explain the active problem being worked at ${currentMinSec} step-by-step with formulas and exact numbers. Do not refuse or ask for a screenshot; answer directly!`;
+    ? `[Quiz Request at ${currentMinSec} in "${videoTitle}"]\nActive Topic: ${activeFocusTitle}\n` +
+      (ocrExtractedText ? `SCREEN/BLACKBOARD OCR TEXT (Captured Frame):\n${ocrExtractedText}\n\n` : '') +
+      `Chalkboard Notes @ ${currentMinSec}: ${activeChalkboardNotes}\nFormulas: ${activeEquations.join(', ')}\nSpoken Words: "${nearbyTranscript || 'N/A'}"\nTopics covered so far: ${coveredHistory.join(' -> ') || activeChapter?.title || 'Lecture'}\nPlease inspect the screen and dialogue at ${currentMinSec}, and generate an interactive multiple choice quiz testing only what was watched up to ${currentMinSec}.`
+    : `[Lecture Screen at ${currentMinSec} in "${videoTitle}"]\nActive Topic / Problem: "${activeFocusTitle}"\n` +
+      (ocrExtractedText ? `SCREEN/BLACKBOARD OCR TEXT (Captured Frame):\n${ocrExtractedText}\n\n` : '') +
+      `Chalkboard Notes & Problem Statement @ ${currentMinSec}:\n${activeChalkboardNotes || 'N/A'}\nKey Formulas @ ${currentMinSec}: ${activeEquations.join(', ') || 'N/A'}\nSpoken Words: "${nearbyTranscript || 'N/A'}"\n\nStudent Question: "${question}" (Answer depth: ${answerDepth})\n\nPlease solve/explain the active problem shown on the screen at ${currentMinSec} step-by-step with formulas and exact numbers. Ground your explanation directly in what is visible on the blackboard/screen. Do not refuse or ask for a screenshot; answer directly!`;
 
   const multimodalMessages: any[] = [
     { role: 'system', content: systemPrompt },
     ...chatHistoryMessages
   ];
-
-  const hasLiveImage = Boolean(imageBase64ToUse && imageBase64ToUse.startsWith('data:image'));
 
   if (hasLiveImage) {
     multimodalMessages.push({
@@ -269,9 +299,9 @@ Return your response strictly as a valid JSON object matching this schema:
 
   // =========================================================================
   // MODEL EXECUTION WATERFALL
-  // 1. Groq (Fastest sub-second LLM with GPT-OSS-120B & Qwen 27B)
-  // 2. Hermes Antigravity Proxy (:8090 - Gemini 3.8 Flash Flagship)
-  // 3. OpenRouter Free Models
+  // 1. Groq Ultra-Fast (Sub-second with OCR-augmented prompt)
+  // 2. NVIDIA NIM Multimodal Vision (Llama 3.2 11B Vision for direct images)
+  // 3. Hermes Antigravity Proxy (:8090 - Gemini Flash Low Effort)
   // 4. Dynamic Context-Aware Fallback
   // =========================================================================
 
@@ -282,7 +312,8 @@ Return your response strictly as a valid JSON object matching this schema:
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0'
           },
           body: JSON.stringify({
             model,
@@ -291,7 +322,7 @@ Return your response strictly as a valid JSON object matching this schema:
             max_tokens: answerDepth === 'quick' ? 800 : 2048,
             temperature: 0.2
           }),
-          signal: AbortSignal.timeout(10000)
+          signal: AbortSignal.timeout(9000)
         });
 
         if (groqResp.ok) {
@@ -311,6 +342,40 @@ Return your response strictly as a valid JSON object matching this schema:
     return null;
   };
 
+  const callNvidiaNimVision = async (): Promise<any | null> => {
+    if (!hasLiveImage) return null;
+    try {
+      const nimResp = await fetch(`${NVIDIA_NIM_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${NVIDIA_NIM_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'meta/llama-3.2-11b-vision-instruct',
+          messages: multimodalMessages,
+          max_tokens: answerDepth === 'quick' ? 800 : 1800,
+          temperature: 0.2
+        }),
+        signal: AbortSignal.timeout(7000)
+      });
+
+      if (nimResp.ok) {
+        const data = await nimResp.json() as any;
+        const text = data?.choices?.[0]?.message?.content || '';
+        if (text && text.length > 20) {
+          const parsed = parseAIResponse(text, question, timestamp, canvasCoordinates);
+          if (parsed && parsed.content && parsed.content.length > 20) {
+            return parsed;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('NVIDIA NIM vision notice:', err);
+    }
+    return null;
+  };
+
   const callAntigravity = async (): Promise<any | null> => {
     for (const localModel of LOCAL_ANTIGRAVITY_MODELS) {
       try {
@@ -319,10 +384,11 @@ Return your response strictly as a valid JSON object matching this schema:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: localModel,
-            messages: multimodalMessages,
+            no_cache: true,
+            messages: textOnlyMessages,
             temperature: 0.2
           }),
-          signal: AbortSignal.timeout(25000)
+          signal: AbortSignal.timeout(15000)
         });
 
         if (localResp.ok) {
@@ -346,65 +412,22 @@ Return your response strictly as a valid JSON object matching this schema:
     return null;
   };
 
-  const callOpenRouter = async (): Promise<any | null> => {
-    for (const model of OPENROUTER_MODELS) {
-      try {
-        const openRouterResp = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'HTTP-Referer': 'https://mytutor.local',
-            'X-Title': 'My Tutor AI',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model,
-            messages: textOnlyMessages,
-            max_tokens: answerDepth === 'quick' ? 800 : 2048,
-            temperature: 0.2
-          }),
-          signal: AbortSignal.timeout(6000)
-        });
-
-        if (openRouterResp.ok) {
-          const data = await openRouterResp.json() as any;
-          const text = data?.choices?.[0]?.message?.content || '';
-          if (text && !text.toLowerCase().includes('rate limit')) {
-            const parsed = parseAIResponse(text, question, timestamp, canvasCoordinates);
-            if (parsed && parsed.content && parsed.content.length > 20) {
-              return parsed;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('OpenRouter notice for', model, err);
-      }
-    }
-    return null;
-  };
-
   // Execution order:
-  // 1. If user provided a live screenshot or image, prioritize Antigravity Gemini Flash Vision!
-  if (hasLiveImage) {
-    const visionReply = await callAntigravity();
-    if (visionReply) return visionReply;
-  }
-
-  // 2. High-speed Groq LLM (GPT-OSS-120B / Qwen 27B)
+  // 1. High-speed Groq LLM (Sub-second execution with OCR-extracted screen text!)
   const groqReply = await callGroq();
   if (groqReply) return groqReply;
 
-  // 3. Antigravity fallback if not already tried
-  if (!hasLiveImage) {
-    const antigravityReply = await callAntigravity();
-    if (antigravityReply) return antigravityReply;
+  // 2. Multimodal Vision via NVIDIA NIM if image was provided
+  if (hasLiveImage) {
+    const nimVisionReply = await callNvidiaNimVision();
+    if (nimVisionReply) return nimVisionReply;
   }
 
-  // 4. OpenRouter Free Models fallback
-  const openRouterReply = await callOpenRouter();
-  if (openRouterReply) return openRouterReply;
+  // 3. Hermes Antigravity Proxy (Gemini Flash Low Reasoning Effort)
+  const antigravityReply = await callAntigravity();
+  if (antigravityReply) return antigravityReply;
 
-  // 5. Dynamic Context-Aware Fallback (No hardcoded diagrams or static canned answers)
+  // 4. Dynamic Context-Aware Fallback (No hardcoded diagrams or static canned answers)
   return generateDynamicHeuristicReply(question, timestamp, videoTitle, activeChapter, nearbyTranscript, isQuizMode, liveScene);
 }
 

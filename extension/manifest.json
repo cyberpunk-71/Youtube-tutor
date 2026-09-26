@@ -9,9 +9,7 @@
   ],
   "host_permissions": [
     "*://*.youtube.com/*",
-    "http://localhost:3456/*",
-    "http://127.0.0.1:3456/*",
-    "http://100.86.244.6:3456/*"
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup.html",

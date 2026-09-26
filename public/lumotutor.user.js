@@ -1,4 +1,23 @@
-/**
+// ==UserScript==
+// @name         LumoTutor AI - YouTube Floating Screen Assistant
+// @namespace    http://tampermonkey.net/
+// @version      1.0.0
+// @description  Floating AI tutor overlay for YouTube. Reads your video screen, takes voice input, and explains formulas & problems on the fly.
+// @author       Antigravity
+// @match        https://www.youtube.com/*
+// @grant        GM_xmlhttpRequest
+// @connect      localhost
+// @connect      127.0.0.1
+// @connect      100.86.244.6
+// @run-at       document-idle
+// ==/UserScript==
+
+(function() {
+  const style = document.createElement('style');
+  style.textContent = '/* LumoTutor YouTube Floating Overlay Styles */\n\n:root {\n  --lumo-bg: rgba(15, 23, 42, 0.94);\n  --lumo-border: rgba(99, 102, 241, 0.35);\n  --lumo-primary: #6366f1;\n  --lumo-primary-hover: #4f46e5;\n  --lumo-accent: #a855f7;\n  --lumo-text: #f8fafc;\n  --lumo-text-muted: #94a3b8;\n  --lumo-user-bubble: #1e1b4b;\n  --lumo-ai-bubble: rgba(30, 41, 59, 0.85);\n}\n\n/* Floating Minimized Pill */\n#lumotutor-pill {\n  position: fixed;\n  bottom: 24px;\n  right: 24px;\n  z-index: 2147483645;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 8px 14px;\n  background: var(--lumo-bg);\n  border: 1px solid var(--lumo-border);\n  backdrop-filter: blur(12px);\n  -webkit-backdrop-filter: blur(12px);\n  border-radius: 9999px;\n  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(99, 102, 241, 0.25);\n  cursor: grab;\n  user-select: none;\n  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n  color: var(--lumo-text);\n  font-size: 13px;\n  font-weight: 500;\n  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;\n}\n\n#lumotutor-pill:active {\n  cursor: grabbing;\n}\n\n#lumotutor-pill:hover {\n  transform: translateY(-2px);\n  box-shadow: 0 14px 30px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.4);\n}\n\n#lumotutor-pill.hidden {\n  display: none !important;\n}\n\n.lumotutor-pill-icon {\n  font-size: 18px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n\n.lumotutor-pill-label {\n  font-weight: 600;\n  background: linear-gradient(135deg, #a5b4fc, #c084fc);\n  -webkit-background-clip: text;\n  -webkit-text-fill-color: transparent;\n}\n\n.lumotutor-pill-btn {\n  background: rgba(99, 102, 241, 0.2);\n  border: 1px solid rgba(99, 102, 241, 0.4);\n  color: #fff;\n  border-radius: 20px;\n  padding: 4px 8px;\n  font-size: 11px;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.lumotutor-pill-btn:hover {\n  background: rgba(99, 102, 241, 0.4);\n}\n\n/* Floating Chat Window */\n#lumotutor-window {\n  position: fixed;\n  bottom: 24px;\n  right: 24px;\n  width: 440px;\n  max-width: calc(100vw - 32px);\n  height: 600px;\n  max-height: calc(100vh - 48px);\n  z-index: 2147483646;\n  background: var(--lumo-bg);\n  border: 1px solid var(--lumo-border);\n  backdrop-filter: blur(16px);\n  -webkit-backdrop-filter: blur(16px);\n  border-radius: 16px;\n  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7), 0 0 25px rgba(99, 102, 241, 0.2);\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n  color: var(--lumo-text);\n  font-size: 13px;\n  box-sizing: border-box;\n}\n\n#lumotutor-window.hidden {\n  display: none !important;\n}\n\n/* Header */\n.lumotutor-header {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  padding: 12px 16px;\n  background: rgba(30, 41, 59, 0.6);\n  border-bottom: 1px solid rgba(99, 102, 241, 0.2);\n  cursor: grab;\n  user-select: none;\n}\n\n.lumotutor-header:active {\n  cursor: grabbing;\n}\n\n.lumotutor-title-group {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.lumotutor-title-group h3 {\n  margin: 0;\n  font-size: 14px;\n  font-weight: 700;\n  background: linear-gradient(135deg, #a5b4fc, #e879f9);\n  -webkit-background-clip: text;\n  -webkit-text-fill-color: transparent;\n}\n\n.lumotutor-time-badge {\n  background: rgba(99, 102, 241, 0.25);\n  border: 1px solid rgba(99, 102, 241, 0.4);\n  padding: 2px 7px;\n  border-radius: 6px;\n  font-size: 11px;\n  font-weight: 600;\n  color: #c7d2fe;\n}\n\n.lumotutor-header-actions {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n}\n\n.lumotutor-icon-btn {\n  background: transparent;\n  border: none;\n  color: var(--lumo-text-muted);\n  cursor: pointer;\n  padding: 4px 6px;\n  border-radius: 6px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  transition: background 0.15s, color 0.15s;\n}\n\n.lumotutor-icon-btn:hover {\n  background: rgba(255, 255, 255, 0.1);\n  color: #fff;\n}\n\n/* Quick Chips Bar */\n.lumotutor-chips-bar {\n  display: flex;\n  gap: 6px;\n  padding: 8px 12px;\n  background: rgba(15, 23, 42, 0.4);\n  border-bottom: 1px solid rgba(255, 255, 255, 0.05);\n  overflow-x: auto;\n  white-space: nowrap;\n}\n\n.lumotutor-chips-bar::-webkit-scrollbar {\n  height: 3px;\n}\n.lumotutor-chips-bar::-webkit-scrollbar-thumb {\n  background: rgba(255, 255, 255, 0.15);\n  border-radius: 3px;\n}\n\n.lumotutor-chip {\n  background: rgba(30, 41, 59, 0.8);\n  border: 1px solid rgba(99, 102, 241, 0.25);\n  color: #cbd5e1;\n  padding: 4px 10px;\n  border-radius: 999px;\n  font-size: 11px;\n  cursor: pointer;\n  transition: all 0.15s;\n  flex-shrink: 0;\n}\n\n.lumotutor-chip:hover {\n  background: rgba(99, 102, 241, 0.3);\n  border-color: rgba(99, 102, 241, 0.6);\n  color: #fff;\n}\n\n/* Chat Messages Area */\n.lumotutor-messages {\n  flex: 1;\n  overflow-y: auto;\n  padding: 14px;\n  display: flex;\n  flex-direction: column;\n  gap: 12px;\n}\n\n.lumotutor-messages::-webkit-scrollbar {\n  width: 5px;\n}\n.lumotutor-messages::-webkit-scrollbar-thumb {\n  background: rgba(255, 255, 255, 0.15);\n  border-radius: 4px;\n}\n\n.lumotutor-msg {\n  display: flex;\n  flex-direction: column;\n  max-width: 90%;\n  border-radius: 12px;\n  padding: 10px 14px;\n  line-height: 1.5;\n  word-wrap: break-word;\n}\n\n.lumotutor-msg.user {\n  align-self: flex-end;\n  background: var(--lumo-user-bubble);\n  border: 1px solid rgba(99, 102, 241, 0.4);\n  color: #f1f5f9;\n}\n\n.lumotutor-msg.assistant {\n  align-self: flex-start;\n  background: var(--lumo-ai-bubble);\n  border: 1px solid rgba(255, 255, 255, 0.1);\n  color: #e2e8f0;\n}\n\n/* Screenshot Preview in Chat */\n.lumotutor-shot-preview {\n  margin-top: 6px;\n  margin-bottom: 6px;\n  border-radius: 8px;\n  overflow: hidden;\n  border: 1px solid rgba(99, 102, 241, 0.3);\n  max-height: 140px;\n  display: inline-block;\n  cursor: pointer;\n}\n\n.lumotutor-shot-preview img {\n  width: 100%;\n  height: auto;\n  max-height: 140px;\n  object-fit: cover;\n  display: block;\n}\n\n/* Math and Markdown inside message */\n.lumotutor-msg p {\n  margin: 0 0 8px 0;\n}\n.lumotutor-msg p:last-child {\n  margin-bottom: 0;\n}\n\n.lumotutor-msg h3, .lumotutor-msg h4 {\n  margin: 8px 0 4px 0;\n  color: #a5b4fc;\n}\n\n.lumotutor-msg pre, .lumotutor-msg code {\n  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;\n  background: rgba(0, 0, 0, 0.3);\n  border-radius: 4px;\n}\n\n.lumotutor-msg code {\n  padding: 2px 4px;\n  font-size: 12px;\n  color: #f472b6;\n}\n\n.lumotutor-msg pre {\n  padding: 8px 10px;\n  overflow-x: auto;\n  border: 1px solid rgba(255, 255, 255, 0.1);\n}\n\n.lumotutor-msg ul, .lumotutor-msg ol {\n  margin: 4px 0 8px 18px;\n  padding: 0;\n}\n\n.lumotutor-msg li {\n  margin-bottom: 4px;\n}\n\n/* Math block styling */\n.lumotutor-math-block {\n  display: block;\n  margin: 8px 0;\n  padding: 8px 12px;\n  background: rgba(15, 23, 42, 0.6);\n  border-left: 3px solid #818cf8;\n  border-radius: 4px;\n  font-family: \'KaTeX_Main\', \'Cambria Math\', \'Times New Roman\', serif;\n  font-size: 14px;\n  color: #f8fafc;\n  overflow-x: auto;\n}\n\n.lumotutor-math-inline {\n  display: inline-block;\n  padding: 0 3px;\n  font-family: \'KaTeX_Main\', \'Cambria Math\', \'Times New Roman\', serif;\n  font-weight: 500;\n  color: #93c5fd;\n}\n\n/* Loading Indicator */\n.lumotutor-loading {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  font-size: 12px;\n  color: var(--lumo-text-muted);\n  padding: 8px 12px;\n  background: rgba(30, 41, 59, 0.5);\n  border-radius: 8px;\n  width: fit-content;\n}\n\n.lumotutor-spinner {\n  width: 14px;\n  height: 14px;\n  border: 2px solid rgba(99, 102, 241, 0.3);\n  border-top-color: #818cf8;\n  border-radius: 50%;\n  animation: lumo-spin 0.8s linear infinite;\n}\n\n@keyframes lumo-spin {\n  to { transform: rotate(360deg); }\n}\n\n/* Footer / Input Area */\n.lumotutor-footer {\n  padding: 10px 12px;\n  background: rgba(30, 41, 59, 0.7);\n  border-top: 1px solid rgba(99, 102, 241, 0.2);\n}\n\n.lumotutor-input-box {\n  display: flex;\n  align-items: flex-end;\n  gap: 6px;\n  background: rgba(15, 23, 42, 0.8);\n  border: 1px solid rgba(99, 102, 241, 0.3);\n  border-radius: 12px;\n  padding: 6px 8px;\n  transition: border-color 0.2s;\n}\n\n.lumotutor-input-box:focus-within {\n  border-color: #818cf8;\n  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);\n}\n\n.lumotutor-textarea {\n  flex: 1;\n  background: transparent;\n  border: none;\n  color: #fff;\n  font-size: 13px;\n  font-family: inherit;\n  resize: none;\n  max-height: 80px;\n  min-height: 24px;\n  outline: none;\n  padding: 2px 4px;\n  line-height: 1.4;\n}\n\n.lumotutor-textarea::placeholder {\n  color: #64748b;\n}\n\n/* Buttons in Footer */\n.lumotutor-mic-btn {\n  background: transparent;\n  border: none;\n  color: #94a3b8;\n  cursor: pointer;\n  padding: 6px;\n  border-radius: 8px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 16px;\n  transition: all 0.2s;\n}\n\n.lumotutor-mic-btn:hover {\n  background: rgba(255, 255, 255, 0.1);\n  color: #fff;\n}\n\n.lumotutor-mic-btn.listening {\n  color: #ef4444;\n  background: rgba(239, 68, 68, 0.2);\n  animation: lumo-pulse 1s infinite alternate;\n}\n\n@keyframes lumo-pulse {\n  from { transform: scale(1); box-shadow: 0 0 4px #ef4444; }\n  to { transform: scale(1.1); box-shadow: 0 0 12px #ef4444; }\n}\n\n.lumotutor-send-btn {\n  background: linear-gradient(135deg, #6366f1, #8b5cf6);\n  border: none;\n  color: #fff;\n  cursor: pointer;\n  padding: 6px 10px;\n  border-radius: 8px;\n  font-weight: 600;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  transition: opacity 0.2s;\n}\n\n.lumotutor-send-btn:hover {\n  opacity: 0.9;\n}\n\n.lumotutor-screen-btn {\n  background: rgba(99, 102, 241, 0.15);\n  border: 1px solid rgba(99, 102, 241, 0.3);\n  color: #a5b4fc;\n  cursor: pointer;\n  padding: 4px 8px;\n  border-radius: 6px;\n  font-size: 11px;\n  font-weight: 600;\n  display: inline-flex;\n  align-items: center;\n  gap: 4px;\n  margin-top: 6px;\n  transition: all 0.15s;\n}\n\n.lumotutor-screen-btn:hover {\n  background: rgba(99, 102, 241, 0.35);\n  color: #fff;\n}\n';
+  document.head.appendChild(style);
+
+  /**
  * LumoTutor AI - YouTube Floating Screen Assistant
  * Content Script injected directly into youtube.com/watch
  */
@@ -461,38 +480,41 @@
         chatHistory: chatHistory.slice(-6)
       };
 
-      let data = null;
+      let resp = null;
+      let lastErr = null;
 
-      // 1. Extension context: send to background service worker (bypasses HTTPS mixed-content blocks)
-      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-        data = await new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({ type: 'ASK_TUTOR', payload }, (res) => {
-            if (chrome.runtime.lastError) {
-              return reject(new Error(chrome.runtime.lastError.message));
-            }
-            if (!res) {
-              return reject(new Error('Extension service worker unreachable'));
-            }
-            if (res.success) {
-              resolve(res.data);
-            } else {
-              reject(new Error(res.error || 'Server request failed'));
-            }
+      // Try active serverUrl first, then fallback to VPS mesh IP if needed
+      const endpoints = [
+        serverUrl,
+        'http://localhost:3456',
+        'http://127.0.0.1:3456',
+        'http://100.86.244.6:3456'
+      ];
+
+      for (const ep of Array.from(new Set(endpoints))) {
+        try {
+          resp = await fetch(`${ep}/api/tutor/vision-ask`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(20000)
           });
-        });
-      } else {
-        // 2. Direct fetch fallback for non-extension environments
-        const resp = await fetch('http://100.86.244.6:3456/api/tutor/vision-ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        data = await resp.json();
+          if (resp && resp.ok) {
+            serverUrl = ep; // Store winning endpoint
+            break;
+          }
+        } catch (e) {
+          lastErr = e;
+        }
       }
 
       loadingDiv.remove();
 
+      if (!resp || !resp.ok) {
+        throw new Error(lastErr?.message || `Server responded with ${resp?.status || 'Offline'}`);
+      }
+
+      const data = await resp.json();
       const content = data.content || 'Here is the analysis of this video frame.';
 
       chatHistory.push({ role: 'assistant', content });
@@ -548,20 +570,14 @@
 
     } catch (err) {
       if (loadingDiv.parentNode) loadingDiv.remove();
-      const isContextInvalidated = err.message && (err.message.includes('Extension context invalidated') || err.message.includes('message port closed'));
 
       const errDiv = document.createElement('div');
       errDiv.className = 'lumotutor-msg assistant';
       errDiv.style.border = '1px solid #ef4444';
-      errDiv.innerHTML = isContextInvalidated
-        ? `
-          <p style="color: #fbbf24;">🔄 <strong>Extension Updated:</strong> Extension background service was refreshed.</p>
-          <p style="font-size: 12px; color: #f8fafc; margin-top: 4px;">Please press <strong>Ctrl + R</strong> to reload this YouTube page so the updated LumoTutor assistant can attach.</p>
-        `
-        : `
-          <p style="color: #f87171;">⚠️ <strong>Could not connect to AI Tutor backend:</strong> ${escapeHtml(err.message)}</p>
-          <p style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Check backend connection in LumoTutor extension settings or click the extension icon in Chrome toolbar.</p>
-        `;
+      errDiv.innerHTML = `
+        <p style="color: #f87171;">⚠️ <strong>Could not connect to AI Tutor backend:</strong> ${escapeHtml(err.message)}</p>
+        <p style="font-size: 11px; color: #94a3b8;">Ensure LumoTutor server is running (<code>systemctl status lumotutor</code> on port 3456) or check extension settings.</p>
+      `;
       messages.appendChild(errDiv);
       messages.scrollTop = messages.scrollHeight;
     }
@@ -640,5 +656,7 @@
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
+
+})();
 
 })();
