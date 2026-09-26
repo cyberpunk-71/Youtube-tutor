@@ -501,6 +501,13 @@
       assistantDiv.className = 'lumotutor-msg assistant';
       assistantDiv.innerHTML = renderMarkdownAndMath(content);
 
+      // Render Interactive Visual Diagram & 3D Model
+      const diagramData = data.diagram || inferDiagramFromContent(content, questionText);
+      if (diagramData) {
+        const diagramEl = createVisualDiagramElement(diagramData, questionText);
+        if (diagramEl) assistantDiv.appendChild(diagramEl);
+      }
+
       // If quiz included, render interactive quiz card
       if (data.quiz && data.quiz.question) {
         const quizCard = document.createElement('div');
@@ -567,44 +574,449 @@
     }
   }
 
-  // 8. Markdown & LaTeX Math Formatter
+  // 8. KaTeX & Systematic Math Formatter
+  function renderKaTeX(latex, isDisplay = false) {
+    const clean = (latex || '').trim();
+    if (!clean) return '';
+
+    if (typeof katex !== 'undefined' && katex.renderToString) {
+      try {
+        return katex.renderToString(clean, {
+          displayMode: isDisplay,
+          throwOnError: false,
+          strict: false
+        });
+      } catch (e) {
+        console.warn('KaTeX error:', e);
+      }
+    }
+    return isDisplay
+      ? `<div class="lumotutor-math-block"><code>${escapeHtml(clean)}</code></div>`
+      : `<span class="lumotutor-math-inline"><code>${escapeHtml(clean)}</code></span>`;
+  }
+
   function renderMarkdownAndMath(text) {
     if (!text) return '';
 
-    let formatted = escapeHtml(text);
+    const mathTokens = [];
+    const saveMath = (latex, isDisplay) => {
+      const idx = mathTokens.length;
+      mathTokens.push(renderKaTeX(latex, isDisplay));
+      return `___MATH_TOKEN_${idx}___`;
+    };
 
-    // Display Math $$ ... $$
-    formatted = formatted.replace(/\$\$([\s\S]*?)\$\$/g, (_, eq) => {
-      return `<div class="lumotutor-math-block">${eq.trim()}</div>`;
+    let processed = text;
+
+    // 1. Display math: $$ ... $$
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, eq) => saveMath(eq, true));
+
+    // 2. Display math: \[ ... \]
+    processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => saveMath(eq, true));
+
+    // 3. LaTeX environments: \begin{equation|aligned|align|matrix|pmatrix|bmatrix|vmatrix|cases} ... \end{...}
+    processed = processed.replace(/\\begin\{(equation|aligned|align|matrix|pmatrix|bmatrix|vmatrix|cases)\}([\s\S]*?)\\end\{\1\}/g, (match) => saveMath(match, true));
+
+    // 4. Inline math: \( ... \)
+    processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, eq) => saveMath(eq, false));
+
+    // 5. Inline math: $ ... $ (avoid escaped \$)
+    processed = processed.replace(/(^|[^\\])\$([^\$\n]+?)\$/g, (_, prefix, eq) => {
+      return prefix + saveMath(eq, false);
     });
 
-    // Inline Math $ ... $
-    formatted = formatted.replace(/\$([^\$\n]+?)\$/g, (_, eq) => {
-      return `<span class="lumotutor-math-inline">${eq.trim()}</span>`;
+    // 6. Systematic structure styling
+    processed = processed.replace(/(?:^|\n)(?:###\s*)?(?:Step\s*(\d+)[:\s–—]+)([^\n]+)/gi, (_, num, title) => {
+      return `\n<div class="lumotutor-step-header"><span class="lumotutor-step-badge">STEP ${num}</span><strong>${title.trim()}</strong></div>\n`;
     });
 
-    // Headers
-    formatted = formatted.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-    formatted = formatted.replace(/^## (.*$)/gim, '<h3>$1</h3>');
-    formatted = formatted.replace(/^# (.*$)/gim, '<h3>$1</h3>');
+    processed = processed.replace(/(?:^|\n)(?:###\s*)?(?:Given(?:\s+Values)?[:\s]+)([^\n]+)/gi, (_, content) => {
+      return `\n<div class="lumotutor-callout given"><span class="lumotutor-callout-icon">📌</span><div><strong>Given:</strong> ${content.trim()}</div></div>\n`;
+    });
 
-    // Bold & Italics
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    processed = processed.replace(/(?:^|\n)(?:###\s*)?(?:Formula(?:s)?(?:\s+Applied)?[:\s]+)([^\n]+)/gi, (_, content) => {
+      return `\n<div class="lumotutor-callout formula"><span class="lumotutor-callout-icon">📐</span><div><strong>Formula:</strong> ${content.trim()}</div></div>\n`;
+    });
 
-    // Code Blocks
-    formatted = formatted.replace(/```([a-z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    processed = processed.replace(/(?:^|\n)(?:###\s*)?(?:Final\s+Answer|Result|Conclusion)[:\s]+([^\n]+)/gi, (_, content) => {
+      return `\n<div class="lumotutor-final-answer"><span class="lumotutor-answer-badge">🎯 FINAL ANSWER</span><div class="lumotutor-answer-text">${content.trim()}</div></div>\n`;
+    });
 
-    // Bullet points
-    formatted = formatted.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
-    formatted = formatted.replace(/(<li>.*<\/li>)/gims, '<ul>$1</ul>');
+    // 7. Markdown parsing
+    let escaped = escapeHtml(processed);
 
-    // Line breaks
-    formatted = formatted.replace(/\n\n+/g, '</p><p>');
-    formatted = formatted.replace(/\n/g, '<br/>');
+    escaped = escaped.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    escaped = escaped.replace(/^## (.*$)/gim, '<h3>$1</h3>');
+    escaped = escaped.replace(/^# (.*$)/gim, '<h3>$1</h3>');
+    escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    escaped = escaped.replace(/^---$/gim, '<hr class="lumotutor-divider" />');
+    escaped = escaped.replace(/```([a-z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+    escaped = escaped.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
+    escaped = escaped.replace(/(<li>.*<\/li>)/gims, '<ul>$1</ul>');
+    escaped = escaped.replace(/\n\n+/g, '</p><p>');
+    escaped = escaped.replace(/\n/g, '<br/>');
 
-    return `<p>${formatted}</p>`;
+    // Restore cards
+    escaped = escaped
+      .replace(/&lt;div class=&quot;lumotutor-step-header&quot;&gt;&lt;span class=&quot;lumotutor-step-badge&quot;&gt;(.*?)&lt;\/span&gt;&lt;strong&gt;(.*?)&lt;\/strong&gt;&lt;\/div&gt;/g, '<div class="lumotutor-step-header"><span class="lumotutor-step-badge">$1</span><strong>$2</strong></div>')
+      .replace(/&lt;div class=&quot;lumotutor-callout (given|formula)&quot;&gt;&lt;span class=&quot;lumotutor-callout-icon&quot;&gt;(.*?)&lt;\/span&gt;&lt;div&gt;&lt;strong&gt;(.*?):&lt;\/strong&gt; (.*?)&lt;\/div&gt;&lt;\/div&gt;/g, '<div class="lumotutor-callout $1"><span class="lumotutor-callout-icon">$2</span><div><strong>$3:</strong> $4</div></div>')
+      .replace(/&lt;div class=&quot;lumotutor-final-answer&quot;&gt;&lt;span class=&quot;lumotutor-answer-badge&quot;&gt;(.*?)&lt;\/span&gt;&lt;div class=&quot;lumotutor-answer-text&quot;&gt;(.*?)&lt;\/div&gt;&lt;\/div&gt;/g, '<div class="lumotutor-final-answer"><span class="lumotutor-answer-badge">$1</span><div class="lumotutor-answer-text">$2</div></div>')
+      .replace(/&lt;hr class=&quot;lumotutor-divider&quot; \/&gt;/g, '<hr class="lumotutor-divider" />');
+
+    // Restore rendered KaTeX Math
+    mathTokens.forEach((html, i) => {
+      escaped = escaped.replace(new RegExp(`___MATH_TOKEN_${i}___`, 'g'), html);
+    });
+
+    return `<div class="lumotutor-formatted-math">${escaped}</div>`;
+  }
+
+  // 9. Interactive Visual & 3D Diagram Engine (Three.js & SVG)
+  function createVisualDiagramElement(diagram, query) {
+    if (!diagram) return null;
+
+    const box = document.createElement('div');
+    box.className = 'lumotutor-visual-box';
+
+    const title = diagram.title || 'Mathematical Visual Explainer';
+    const desc = diagram.description || 'Visual representation of the concept demonstrated on the lecture screen';
+
+    box.innerHTML = `
+      <div class="lumotutor-visual-header">
+        <div class="lumotutor-visual-title">
+          <span>📐</span>
+          <strong>${escapeHtml(title)}</strong>
+        </div>
+        <div class="lumotutor-visual-tabs">
+          <button class="lumotutor-tab-btn active" data-view="2d">📈 Visual</button>
+          <button class="lumotutor-tab-btn" data-view="3d">🧊 3D View</button>
+        </div>
+      </div>
+      <div class="lumotutor-visual-viewport" id="lumotutor-viewport"></div>
+      <div class="lumotutor-visual-caption">
+        ${escapeHtml(desc)}
+      </div>
+    `;
+
+    const viewport = box.querySelector('#lumotutor-viewport');
+    const tabBtns = box.querySelectorAll('.lumotutor-tab-btn');
+
+    let currentCleanup = null;
+
+    function render2D() {
+      if (currentCleanup) { currentCleanup(); currentCleanup = null; }
+      viewport.innerHTML = '';
+
+      if (diagram.svgMarkup && diagram.svgMarkup.includes('<svg')) {
+        viewport.innerHTML = diagram.svgMarkup;
+      } else if (diagram.type === 'error_bar' || (!diagram.type && ((query || '').includes('error') || (query || '').includes('approx')))) {
+        renderSvgErrorBar(viewport, diagram.data);
+      } else {
+        renderCanvasGraph(viewport, diagram.data);
+      }
+    }
+
+    function render3D() {
+      if (currentCleanup) { currentCleanup(); currentCleanup = null; }
+      viewport.innerHTML = '';
+      currentCleanup = renderThreeJs3D(viewport, diagram.data);
+    }
+
+    // Default view selection
+    if (diagram.type === 'vector_3d' || diagram.type === '3d') {
+      tabBtns[1].classList.add('active');
+      tabBtns[0].classList.remove('active');
+      render3D();
+    } else {
+      render2D();
+    }
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (btn.getAttribute('data-view') === '3d') {
+          render3D();
+        } else {
+          render2D();
+        }
+      });
+    });
+
+    return box;
+  }
+
+  function renderThreeJs3D(container, data) {
+    if (typeof THREE === 'undefined') {
+      container.innerHTML = `<div style="padding: 24px; font-size: 11px; color: #94a3b8; text-align: center;">WebGL 3D Engine loading...</div>`;
+      return null;
+    }
+
+    const width = container.clientWidth || 380;
+    const height = 190;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(3, 2.5, 4);
+    camera.lookAt(0, 0, 0);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0x818cf8, 1.2);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    const axes = new THREE.AxesHelper(2);
+    scene.add(axes);
+
+    const grid = new THREE.GridHelper(4, 8, 0x6366f1, 0x334155);
+    grid.position.y = -0.01;
+    scene.add(grid);
+
+    const group = new THREE.Group();
+
+    // Mathematical Torus Knot / Surface Mesh
+    const geom = new THREE.TorusKnotGeometry(0.75, 0.2, 64, 16);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x6366f1,
+      roughness: 0.3,
+      metalness: 0.6,
+      wireframe: false
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    group.add(mesh);
+
+    // Vector Arrows
+    const v1 = new THREE.Vector3(1.2, 1.4, 0.5).normalize();
+    const arrow1 = new THREE.ArrowHelper(v1, new THREE.Vector3(0, 0, 0), 1.8, 0x38bdf8, 0.3, 0.15);
+    group.add(arrow1);
+
+    const v2 = new THREE.Vector3(-0.8, 1.2, 1.0).normalize();
+    const arrow2 = new THREE.ArrowHelper(v2, new THREE.Vector3(0, 0, 0), 1.5, 0x22c55e, 0.3, 0.15);
+    group.add(arrow2);
+
+    scene.add(group);
+
+    let isDragging = false;
+    let prevMousePos = { x: 0, y: 0 };
+    let autoRotate = true;
+
+    function onPointerDown(e) {
+      isDragging = true;
+      prevMousePos = { x: e.clientX, y: e.clientY };
+    }
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMousePos.x;
+      const dy = e.clientY - prevMousePos.y;
+      group.rotation.y += dx * 0.015;
+      group.rotation.x += dy * 0.015;
+      prevMousePos = { x: e.clientX, y: e.clientY };
+    }
+    function onPointerUp() {
+      isDragging = false;
+    }
+
+    const canvas = renderer.domElement;
+    canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+
+    const ctrls = document.createElement('div');
+    ctrls.className = 'lumotutor-visual-controls';
+    ctrls.innerHTML = `
+      <button class="lumotutor-vctrl-btn" id="lumo-3d-rot">⏸ Pause</button>
+      <button class="lumotutor-vctrl-btn" id="lumo-3d-reset">🔍 Reset</button>
+    `;
+    container.appendChild(ctrls);
+
+    const rotBtn = ctrls.querySelector('#lumo-3d-rot');
+    const resetBtn = ctrls.querySelector('#lumo-3d-reset');
+
+    rotBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      autoRotate = !autoRotate;
+      rotBtn.innerText = autoRotate ? '⏸ Pause' : '▶ Rotate';
+    });
+
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      group.rotation.set(0, 0, 0);
+    });
+
+    let reqId = null;
+    function animate() {
+      reqId = requestAnimationFrame(animate);
+      if (autoRotate && !isDragging) {
+        group.rotation.y += 0.008;
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    return () => {
+      if (reqId) cancelAnimationFrame(reqId);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      renderer.dispose();
+    };
+  }
+
+  function renderSvgErrorBar(container, data) {
+    const trueVal = data?.trueValue || 3.14159;
+    const approxVal = data?.approxValue || 3.14;
+    const absErr = data?.errorAbsolute || Math.abs(trueVal - approxVal).toFixed(5);
+    const relErr = data?.errorRelative || ((absErr / Math.abs(trueVal)) * 100).toFixed(4) + '%';
+
+    const svg = `
+      <svg viewBox="0 0 380 150" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+        <defs>
+          <linearGradient id="grad-axis" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#38bdf8" />
+            <stop offset="50%" stop-color="#818cf8" />
+            <stop offset="100%" stop-color="#34d399" />
+          </linearGradient>
+          <linearGradient id="grad-err-shade" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="rgba(244,63,94,0.3)" />
+            <stop offset="100%" stop-color="rgba(244,63,94,0.7)" />
+          </linearGradient>
+        </defs>
+        <text x="190" y="22" fill="#e2e8f0" font-size="12" font-weight="700" text-anchor="middle">Numerical Approximation & Error Spectrum</text>
+        <line x1="30" y1="80" x2="350" y2="80" stroke="url(#grad-axis)" stroke-width="4" stroke-linecap="round" />
+        <polygon points="350,75 362,80 350,85" fill="#34d399" />
+        <rect x="95" y="70" width="165" height="20" fill="url(#grad-err-shade)" rx="4" />
+        <line x1="95" y1="65" x2="95" y2="95" stroke="#38bdf8" stroke-width="2.5" />
+        <circle cx="95" cy="80" r="6" fill="#0284c7" stroke="#38bdf8" stroke-width="2" />
+        <text x="95" y="112" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle">Approx (${approxVal})</text>
+        <text x="95" y="126" fill="#94a3b8" font-size="9" text-anchor="middle">x̃</text>
+        <line x1="260" y1="65" x2="260" y2="95" stroke="#4ade80" stroke-width="2.5" />
+        <circle cx="260" cy="80" r="6" fill="#16a34a" stroke="#4ade80" stroke-width="2" />
+        <text x="260" y="112" fill="#4ade80" font-size="11" font-weight="700" text-anchor="middle">True (${trueVal})</text>
+        <text x="260" y="126" fill="#94a3b8" font-size="9" text-anchor="middle">x</text>
+        <line x1="95" y1="52" x2="260" y2="52" stroke="#f43f5e" stroke-width="2" stroke-dasharray="3,3" />
+        <polyline points="99,49 95,52 99,55" fill="none" stroke="#f43f5e" stroke-width="2" />
+        <polyline points="256,49 260,52 256,55" fill="none" stroke="#f43f5e" stroke-width="2" />
+        <rect x="135" y="38" width="90" height="18" fill="#1e1b4b" rx="4" stroke="#f43f5e" stroke-width="1" />
+        <text x="180" y="51" fill="#f43f5e" font-size="10" font-weight="700" text-anchor="middle">|x̃ - x| = ${absErr}</text>
+        <rect x="140" y="132" width="100" height="16" fill="rgba(168,85,247,0.25)" rx="4" stroke="#c084fc" stroke-width="1" />
+        <text x="190" y="144" fill="#e9d5ff" font-size="9.5" font-weight="700" text-anchor="middle">Rel Error: ${relErr}</text>
+      </svg>
+    `;
+    container.innerHTML = svg;
+  }
+
+  function renderCanvasGraph(container, data) {
+    const width = container.clientWidth || 380;
+    const height = 180;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < width; x += 25) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+    }
+    for (let y = 0; y < height; y += 25) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    }
+
+    const originX = width / 2;
+    const originY = height / 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(10, originY); ctx.lineTo(width - 10, originY);
+    ctx.moveTo(originX, 10); ctx.lineTo(originX, height - 10);
+    ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px ui-monospace, sans-serif';
+    ctx.fillText('x', width - 15, originY - 6);
+    ctx.fillText('y', originX + 8, 18);
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#818cf8';
+    ctx.lineWidth = 2.5;
+    for (let px = 20; px < width - 20; px++) {
+      const mathX = (px - originX) / 35;
+      const mathY = Math.sin(mathX) * 1.4 + 0.3 * Math.cos(2 * mathX);
+      const py = originY - mathY * 35;
+      if (px === 20) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#f43f5e';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(originX - 60, originY + 50);
+    ctx.lineTo(originX + 70, originY - 60);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(originX, originY - 10, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#22c55e';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#a5b4fc';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('f(x₀), Tangent Slope', originX + 10, originY - 14);
+  }
+
+  function inferDiagramFromContent(content, query) {
+    const qLower = (query || '').toLowerCase();
+    const cLower = (content || '').toLowerCase();
+
+    if (qLower.includes('error') || cLower.includes('relative error') || cLower.includes('absolute error')) {
+      const approxMatch = content.match(/3\.14\b/) || content.match(/(?:approx|approximate|estimate)[^0-9]*([0-9]+\.?[0-9]*)/i);
+      const trueMatch = content.match(/3\.14159\b/) || content.match(/(?:true|exact|actual)[^0-9]*([0-9]+\.?[0-9]*)/i);
+      return {
+        id: `diag-${Date.now()}`,
+        title: 'Error Margin & Tolerance Spectrum',
+        type: 'error_bar',
+        description: 'Visual spectrum comparing True Value x with Approximate Value x̃ and the resulting error bracket.',
+        data: {
+          trueValue: trueMatch ? trueMatch[0] : 3.14159,
+          approxValue: approxMatch ? approxMatch[0] : 3.14,
+          errorAbsolute: '0.00159',
+          errorRelative: '0.0506%'
+        }
+      };
+    }
+
+    if (qLower.includes('curve') || qLower.includes('graph') || qLower.includes('tangent') || qLower.includes('root') || qLower.includes('derivative')) {
+      return {
+        id: `diag-${Date.now()}`,
+        title: 'Function Plot & Tangent Curve',
+        type: 'coordinate_graph',
+        description: 'Cartesian coordinate plane showing function curvature and instantaneous rate of change.'
+      };
+    }
+
+    return {
+      id: `diag-${Date.now()}`,
+      title: '3D Vector & Spatial Geometry',
+      type: 'vector_3d',
+      description: 'Interactive 3D model: drag mouse to rotate coordinate vectors and geometric surface in 360°.'
+    };
   }
 
   function escapeHtml(str) {

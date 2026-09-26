@@ -192,25 +192,51 @@ ${depthDirective}
 2. MULTIMODAL VISION PRECEDENCE:
    - If an image or screenshot is attached, inspect the image directly and prioritize any handwritten nuances, annotations, or student drawings.
    - If no screenshot is attached, solve and explain using the active chalkboard notes, formulas, and spoken dialogue at ${currentMinSec} provided above.
-3. CONCRETE STEP-BY-STEP MATHEMATICAL SOLUTION:
-   - Always state the underlying principle and governing recurrence/formula clearly.
-   - Substitute the numerical values for the specific problem being demonstrated on the board at ${currentMinSec}.
-   - Walk through the exact calculation steps, intermediate approximations, and final answer with mathematical precision.
-4. MULTI-TURN CONVERSATION MEMORY:
-   - Inspect previous chat turns. If the student is asking a follow-up, build directly on what was discussed without repetitive introductions.
-5. CLEAN MATH FORMATTING:
-   - Use standard LaTeX with $...$ for inline math (e.g. $f'(x) = 3x^2 - 2$).
-   - Use $$...$$ on their own lines for display block equations.
-6. DIAGRAM DIRECTIVE:
-   - Set "diagram": null unless the student explicitly asks for an SVG drawing/plot.
-7. COMPREHENSION QUIZ & FOLLOW-UP PROMPTS:
-   - Include a comprehension quiz question in "quiz" checking the concept just explained.
+3. SYSTEMATIC MATHEMATICAL STRUCTURE:
+   Format your explanation systematically into clear, distinguished sections:
+   - 📌 **Given Values**: Identify all known constants, approximate values $\tilde{x}$, exact values $x$, and parameters from the screen.
+   - 📐 **Governing Formula**: State the exact theorem, definition, or formula in display LaTeX ($$ ... $$).
+   - ⚡ **Step-by-Step Derivation**: Number each step (Step 1, Step 2, ...) showing explicit numerical substitution, algebraic simplification, and intermediate arithmetic.
+   - 🎯 **Final Answer**: Clearly highlight the final evaluated result with exact fraction, decimal, and percentage.
+4. CLEAN LATEX MATH FORMATTING:
+   - Use standard LaTeX with $...$ for inline math (e.g. $E_{\\text{rel}} = \\frac{|\\tilde{x}-x|}{|x|}$).
+   - Use $$ ... $$ on separate lines for display block equations.
+5. MANDATORY VISUAL & GRAPHICAL DIAGRAM ("diagram" field):
+   - ALWAYS provide a rich visual diagram in the "diagram" field to give the student visual, geometric, or graphical intuition!
+   - Select the most appropriate type:
+     * "error_bar": For errors, precision, intervals, approximations (e.g. comparing true value 3.14159 vs approx 3.14).
+     * "coordinate_graph": For calculus, functions, curves, tangents, roots, limits.
+     * "vector_3d": For 3D vectors, coordinate systems, linear algebra, physics.
+     * "svg_custom": Complete inline SVG markup (<svg viewBox="0 0 400 180" ...>...</svg>) with dark theme styles (stroke #818cf8, fill rgba(99,102,241,0.2), text #f8fafc).
+   - In "diagram", provide:
+     {
+       "id": "diag-1",
+       "title": "Clear Visual Title",
+       "type": "error_bar" | "coordinate_graph" | "vector_3d" | "svg_custom",
+       "description": "Visual intuition of the concept",
+       "data": { "trueValue": 3.14159, "approxValue": 3.14, "errorAbsolute": 0.00159, "errorRelative": 0.000506 },
+       "svgMarkup": "<svg viewBox=\"0 0 400 160\" xmlns=\"http://www.w3.org/2000/svg\">...</svg>"
+     }
+6. COMPREHENSION QUIZ & FOLLOW-UP PROMPTS:
+   - Include a multiple-choice comprehension check in "quiz" checking the principle just explained.
    - Provide 2-3 natural follow-up questions in "suggestedPrompts".
 
 Return your response strictly as a valid JSON object matching this schema:
 {
-  "content": "Your conversational explanation formatted in markdown with LaTeX $...$ and $$...$$",
-  "diagram": null,
+  "content": "Systematic explanation with 📌 Given, 📐 Governing Formula, ⚡ Step-by-Step, and 🎯 Final Answer using LaTeX $...$ and $$...$$",
+  "diagram": {
+    "id": "diag-1",
+    "title": "Visual Diagram Title",
+    "type": "error_bar",
+    "description": "Description of what this diagram shows",
+    "data": {
+      "trueValue": 3.14159,
+      "approxValue": 3.14,
+      "errorAbsolute": 0.00159,
+      "errorRelative": "0.0506%"
+    },
+    "svgMarkup": "<svg viewBox=\"0 0 400 140\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"40\" y1=\"70\" x2=\"360\" y2=\"70\" stroke=\"#64748b\" stroke-width=\"2\"/><circle cx=\"120\" cy=\"70\" r=\"6\" fill=\"#38bdf8\"/><text x=\"120\" y=\"100\" fill=\"#38bdf8\" font-size=\"12\" text-anchor=\"middle\">Approx (3.14)</text><circle cx=\"280\" cy=\"70\" r=\"6\" fill=\"#4ade80\"/><text x=\"280\" y=\"100\" fill=\"#4ade80\" font-size=\"12\" text-anchor=\"middle\">True (3.14159)</text><line x1=\"120\" y1=\"50\" x2=\"280\" y2=\"50\" stroke=\"#f43f5e\" stroke-width=\"2\" stroke-dasharray=\"4\"/><text x=\"200\" y=\"42\" fill=\"#f43f5e\" font-size=\"11\" text-anchor=\"middle\">Error Δ = 0.00159</text></svg>"
+  },
   "quiz": {
     "question": "Comprehension check question?",
     "type": "multiple_choice",
@@ -483,18 +509,26 @@ function parseAIResponse(rawText: string, question: string, timestamp: number, c
     }
   }
 
-  // Pure dynamic diagram handling: ONLY keep diagram if AI genuinely returned valid SVG markup
-  let diagram: InteractiveDiagram | null = null;
-  if (parsed?.diagram?.svgMarkup && typeof parsed.diagram.svgMarkup === 'string' && parsed.diagram.svgMarkup.includes('<svg')) {
-    diagram = parsed.diagram;
+  // Diagram handling: preserve structured diagram (error_bar, coordinate_graph, vector_3d, svg_custom)
+  let diagram: any = null;
+  if (parsed?.diagram && (parsed.diagram.type || parsed.diagram.svgMarkup || parsed.diagram.title)) {
+    diagram = {
+      id: parsed.diagram.id || `diag-${Date.now()}`,
+      title: parsed.diagram.title || 'Visual Representation',
+      type: parsed.diagram.type || 'svg_custom',
+      description: parsed.diagram.description || parsed.diagram.caption || 'Concept visualization',
+      data: parsed.diagram.data || null,
+      svgMarkup: parsed.diagram.svgMarkup || null
+    };
   } else {
     const directSvgMatch = rawText.match(/<svg[\s\S]*?<\/svg>/);
     if (directSvgMatch) {
       diagram = {
         id: `diag-${Date.now()}`,
-        title: parsed?.diagram?.title || 'Visual Model',
-        svgMarkup: directSvgMatch[0],
-        caption: parsed?.diagram?.caption || 'Geometric lecture model'
+        title: 'Visual Representation',
+        type: 'svg_custom',
+        description: 'Geometric lecture model',
+        svgMarkup: directSvgMatch[0]
       };
     }
   }

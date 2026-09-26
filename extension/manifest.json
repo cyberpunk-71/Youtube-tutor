@@ -21,9 +21,15 @@
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/*"],
-      "js": ["content.js"],
-      "css": ["overlay.css"],
+      "js": ["three.min.js", "katex.min.js", "content.js"],
+      "css": ["katex.min.css", "overlay.css"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*"],
+      "matches": ["*://*.youtube.com/*"]
     }
   ],
   "icons": {
