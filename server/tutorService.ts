@@ -444,6 +444,59 @@ function generateFallbackDiagram(question: string, timestamp: number): Interacti
     };
   }
 
+  if (q.includes('newton') || q.includes('raphson') || q.includes('root') || q.includes('bisection') || q.includes('numerical') || q.includes('iteration')) {
+    return {
+      id: 'diag-newton-raphson',
+      title: 'Newton-Raphson Tangent Iteration: $x_{n+1} = x_n - \\frac{f(x_n)}{f\'(x_n)}$',
+      type: 'calculus_integral',
+      description: 'The tangent line at $(x_n, f(x_n))$ with slope $f\'(x_n)$ intercepts the x-axis at $x_{n+1}$, rapidly converging to root $r$.',
+      caption: 'Tangent formula: $y - f(x_n) = f\'(x_n)(x - x_n) \\implies x_{n+1} = x_n - \\frac{f(x_n)}{f\'(x_n)}$',
+      svgMarkup: `
+        <svg viewBox="0 0 500 300" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <rect width="500" height="300" fill="#0f172a" rx="12" />
+          <!-- Axes -->
+          <line x1="40" y1="230" x2="470" y2="230" stroke="#475569" stroke-width="2" />
+          <line x1="80" y1="280" x2="80" y2="20" stroke="#475569" stroke-width="2" />
+          <text x="475" y="235" font-size="14" font-weight="bold" fill="#94a3b8">x</text>
+          <text x="75" y="18" font-size="14" font-weight="bold" fill="#94a3b8">y</text>
+          
+          <!-- Curve y = f(x) -->
+          <path d="M 100,270 Q 230,240 440,30" fill="none" stroke="#60a5fa" stroke-width="3.5" stroke-linecap="round" />
+          <text x="445" y="45" font-size="14" font-family="serif" font-weight="bold" fill="#60a5fa">y = f(x)</text>
+          
+          <!-- True Root r on x-axis -->
+          <circle cx="215" cy="230" r="5" fill="#10b981" />
+          <text x="215" y="255" font-size="13" font-weight="bold" text-anchor="middle" fill="#34d399">Root r</text>
+          
+          <!-- Point 1: (x0, f(x0)) -->
+          <line x1="380" y1="230" x2="380" y2="65" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 4" />
+          <circle cx="380" cy="65" r="5" fill="#f59e0b" />
+          <text x="380" y="250" font-size="13" font-weight="bold" text-anchor="middle" fill="#fcd34d">x₀</text>
+          <text x="390" y="60" font-size="12" fill="#fcd34d">(x₀, f(x₀))</text>
+          
+          <!-- Tangent Line 1 from (x0, f(x0)) to x1 -->
+          <line x1="420" y1="25" x2="280" y2="230" stroke="#ef4444" stroke-width="2.5" />
+          <circle cx="280" cy="230" r="4.5" fill="#ef4444" />
+          <text x="280" y="250" font-size="13" font-weight="bold" text-anchor="middle" fill="#f87171">x₁</text>
+          
+          <!-- Point 2: (x1, f(x1)) -->
+          <line x1="280" y1="230" x2="280" y2="155" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4 4" />
+          <circle cx="280" cy="155" r="4.5" fill="#38bdf8" />
+          
+          <!-- Tangent Line 2 from (x1, f(x1)) to x2 -->
+          <line x1="310" y1="120" x2="225" y2="230" stroke="#a855f7" stroke-width="2.5" />
+          <circle cx="225" cy="230" r="4" fill="#a855f7" />
+          <text x="235" y="222" font-size="12" font-weight="bold" fill="#c084fc">x₂</text>
+          
+          <!-- Key Formula Box -->
+          <rect x="100" y="30" width="230" height="50" fill="#1e293b" rx="8" stroke="#334155" />
+          <text x="112" y="52" font-size="12" font-family="monospace" font-weight="bold" fill="#38bdf8">x₁ = x₀ - f(x₀)/f'(x₀)</text>
+          <text x="112" y="70" font-size="11" fill="#94a3b8">Quadratic error: |ε₁| ≈ C |ε₀|²</text>
+        </svg>
+      `
+    };
+  }
+
   if (q.includes('friction') || q.includes('force') || q.includes('normal') || q.includes('ramp') || q.includes('incline') || q.includes('gravity') || q.includes('free body')) {
     return {
       id: 'diag-ramp-friction',

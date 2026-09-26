@@ -556,6 +556,8 @@ export const App: React.FC = () => {
 
         if (data.diagram && data.diagram.svgMarkup) {
           updateCurrentDiagram(data.diagram);
+        } else {
+          updateCurrentDiagram(null);
         }
 
         if (data.canvasNode) {
@@ -647,9 +649,11 @@ export const App: React.FC = () => {
 
       updateMessages(prev => [...prev, assistantMsg]);
 
-      // ONLY pop up/update whiteboard diagram if a valid diagram was explicitly generated!
+      // ONLY show whiteboard diagram if a valid diagram was explicitly generated; otherwise clear it
       if (data.diagram && data.diagram.svgMarkup) {
         updateCurrentDiagram(data.diagram);
+      } else {
+        updateCurrentDiagram(null);
       }
     } catch (err) {
       console.error('Error querying tutor:', err);

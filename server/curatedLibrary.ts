@@ -389,5 +389,124 @@ export const CURATED_LIBRARY: VideoMetadata[] = [
       { start: 220, duration: 40, text: "In a single step, we reduced 1,000 pages down to 500. Then 250, then 125, 62, 31, 16, 8, 4, 2, 1." },
       { start: 260, duration: 45, text: "In just 10 steps, we find Mike Smith. If the phone book has 4 billion people, it takes only 32 steps: log base 2 of 4 billion!" }
     ]
+  },
+  {
+    id: 'ERmwf6_uC7Y',
+    url: 'https://www.youtube.com/watch?v=ERmwf6_uC7Y',
+    title: 'Numerical Analysis: Newton-Raphson & Bisection Methods (Worked Examples)',
+    channel: 'MIT OpenCourseWare / Numerical Analysis',
+    channelUrl: 'https://www.youtube.com/@MIT',
+    duration: 1180,
+    thumbnail: 'https://i.ytimg.com/vi/ERmwf6_uC7Y/hqdefault.jpg',
+    description: 'Mastering numerical root-finding algorithms: Bisection Method, Newton-Raphson iterative scheme, Taylor series linearization, step-by-step worked calculations, quadratic convergence, and divergence pitfalls.',
+    chapters: [
+      {
+        id: 'ch-num-1',
+        chapterNumber: 1,
+        startTime: 0,
+        endTime: 210,
+        title: 'Root-Finding Problem Formulation & Bisection Method (0:00 - 3:30)',
+        summary: 'Finding roots where f(x) = 0 using continuous bracket intervals [a, b] and the Intermediate Value Theorem.',
+        blackboardContent: 'Root finding problem: find r such that f(r) = 0. Continuous function f(x) with initial bracket [a, b] where f(a)·f(b) < 0. Bisection algorithm: compute midpoint c = (a + b)/2. If f(a)·f(c) < 0, root lies in left half [a, c]; otherwise in right half [c, b]. Error shrinks deterministically as (b - a)/2^n < ε. Linear convergence with rate 1/2 per step.',
+        equations: [
+          'f(r) = 0',
+          'f(a) \\cdot f(b) < 0',
+          'c = \\frac{a + b}{2}',
+          '\\text{Error Bound} = \\frac{b - a}{2^n} \\le \\epsilon',
+          'n \\ge \\frac{\\ln(b - a) - \\ln(\\epsilon)}{\\ln(2)}'
+        ],
+        keyConcepts: ['Intermediate Value Theorem', 'Bracket Interval [a, b]', 'Bisection Midpoint c', 'Linear Convergence']
+      },
+      {
+        id: 'ch-num-2',
+        chapterNumber: 2,
+        startTime: 210,
+        endTime: 420,
+        title: 'Newton-Raphson Method Derivation via Tangent Line (3:30 - 7:00)',
+        summary: 'Approximating f(x) by its first-order Taylor tangent line at (x_n, f(x_n)) to find the next root estimate x_{n+1}.',
+        blackboardContent: 'Taylor expansion: f(x) ≈ f(x_n) + f\'(x_n)(x - x_n). Setting f(x) = 0 gives tangent line intersection with x-axis: 0 = f(x_n) + f\'(x_n)(x_{n+1} - x_n) ==> x_{n+1} = x_n - f(x_n)/f\'(x_n). Tangent slope m = f\'(x_n) projects from the curve down to the x-intercept with high precision.',
+        equations: [
+          'f(x) \\approx f(x_n) + f\'(x_n)(x - x_n) = 0',
+          'y - f(x_n) = f\'(x_n)(x - x_n)',
+          'x_{n+1} = x_n - \\frac{f(x_n)}{f\'(x_n)}',
+          '\\text{Correction Step: } \\Delta x = -\\frac{f(x_n)}{f\'(x_n)}'
+        ],
+        keyConcepts: ['Taylor Linearization', 'Tangent Line Intercept', 'Iterative Newton Formula', 'Correction Step Δx']
+      },
+      {
+        id: 'ch-num-3',
+        chapterNumber: 3,
+        startTime: 420,
+        endTime: 750,
+        title: 'Live Worked Example: Solving f(x) = x³ - 2x - 5 = 0 with x₀ = 2 (7:00 - 12:30)',
+        summary: 'Step-by-step arithmetic calculations on the blackboard finding the root of x³ - 2x - 5 = 0 starting from initial guess x₀ = 2.',
+        blackboardContent: 'Target Equation: f(x) = x³ - 2x - 5 = 0. Derivative: f\'(x) = 3x² - 2. Initial Guess x0 = 2.0. Iteration 1: f(2) = 8 - 4 - 5 = -1.0; f\'(2) = 3(4) - 2 = 10.0; x1 = 2 - (-1.0/10.0) = 2.100000. Iteration 2: f(2.1) = 9.261 - 4.2 - 5 = 0.061000; f\'(2.1) = 3(4.41) - 2 = 11.230000; x2 = 2.1 - (0.061/11.23) = 2.094568. Iteration 3: f(2.094568) = 0.000185; f\'(2.094568) = 11.1616; x3 = 2.094568 - (0.000185/11.1616) = 2.09455148. True root r = 2.09455148154!',
+        equations: [
+          'f(x) = x^3 - 2x - 5, \\quad f\'(x) = 3x^2 - 2',
+          'x_0 = 2.0 \\implies f(2) = -1, \\; f\'(2) = 10 \\implies x_1 = 2 - \\frac{-1}{10} = 2.100000',
+          'x_1 = 2.1 \\implies f(2.1) = 0.061, \\; f\'(2.1) = 11.23 \\implies x_2 = 2.1 - \\frac{0.061}{11.23} = 2.094568',
+          'x_2 = 2.094568 \\implies f(2.094568) = 0.000185 \\implies x_3 = 2.09455148',
+          'f(2.09455148) = 0.00000000 \\quad (\\text{Converged in 3 iterations!})'
+        ],
+        keyConcepts: ['Cubic Root-Finding', 'Step-by-Step Iteration Table', '8-Digit Accuracy in 3 Steps']
+      },
+      {
+        id: 'ch-num-4',
+        chapterNumber: 4,
+        startTime: 750,
+        endTime: 930,
+        title: 'Babylonian Square Root Formula via Newton Method: √N (12:30 - 15:30)',
+        summary: 'Solving f(x) = x² - N = 0 yields the classic fast square root recursion x_{n+1} = (1/2)(x_n + N/x_n).',
+        blackboardContent: 'Deriving Square Root Algorithm: Let f(x) = x² - N = 0. Then f\'(x) = 2x. Newton formula: x_{n+1} = x_n - (x_n² - N)/(2x_n) = (2x_n² - x_n² + N)/(2x_n) = (1/2)(x_n + N/x_n). Example for √7 with x0 = 2.5: x1 = 0.5(2.5 + 7/2.5) = 0.5(2.5 + 2.8) = 2.6500. x2 = 0.5(2.65 + 7/2.65) = 2.645755 (Exact √7 = 2.6457513).',
+        equations: [
+          'f(x) = x^2 - N = 0, \\quad f\'(x) = 2x',
+          'x_{n+1} = x_n - \\frac{x_n^2 - N}{2x_n} = \\frac{1}{2}\\left(x_n + \\frac{N}{x_n}\\right)',
+          '\\sqrt{7} \\text{ with } x_0 = 2.5 \\implies x_1 = 2.6500, \\; x_2 = 2.645755'
+        ],
+        keyConcepts: ['Babylonian Square Root', 'Algebraic Simplification', 'Division-Free Matrix/Scalar Roots']
+      },
+      {
+        id: 'ch-num-5',
+        chapterNumber: 5,
+        startTime: 930,
+        endTime: 1180,
+        title: 'Quadratic Convergence Rate & Failure Modes (15:30 - 19:40)',
+        summary: 'Error doubles in precision every step: |ε_{n+1}| ≈ C |ε_n|². When the method fails: f\'(x) ≈ 0, 2-cycles, and divergence.',
+        blackboardContent: 'Error Analysis: Taylor series expansion of f(r) around x_n: 0 = f(r) = f(x_n) + f\'(x_n)(r - x_n) + (1/2)f\'\'(ξ)(r - x_n)². Let ε_n = r - x_n. Dividing by f\'(x_n) yields ε_{n+1} ≈ -(f\'\'(r) / 2f\'(r)) · ε_n². Since error is squared, precision doubles each iteration. Failure modes: 1. f\'(x_n) = 0 (horizontal tangent, division by zero). 2. Cyclic trap (e.g. oscillating between 0 and 1). 3. Divergence away from root.',
+        equations: [
+          '|\\epsilon_{n+1}| \\approx \\frac{|f\'\'(r)|}{2|f\'(r)|} |\\epsilon_n|^2 = C |\\epsilon_n|^2',
+          '\\text{Order of Convergence } p = 2 \\; (\\text{Quadratic})',
+          'f\'(x_n) = 0 \\implies \\text{Division by Zero Failure}',
+          '\\text{Condition for Convergence: } \\left|\\frac{f(x) f\'\'(x)}{(f\'(x))^2}\\right| < 1'
+        ],
+        keyConcepts: ['Quadratic Convergence p = 2', 'Precision Doubling', 'Zero Derivative Failure', 'Limit Cycles']
+      }
+    ],
+    transcript: [
+      { start: 0, duration: 15, text: "Welcome to Numerical Analysis. In this lecture, we tackle one of the core problems in computational mathematics: finding the roots of nonlinear equations f(x) equals zero." },
+      { start: 15, duration: 25, text: "Most real-world equations cannot be solved analytically with pencil and paper. Instead, we use iterative numerical algorithms to compute approximations to arbitrary decimal precision." },
+      { start: 40, duration: 30, text: "We begin with the Bisection Method. If f is continuous and f(a) times f(b) is negative, the Intermediate Value Theorem guarantees at least one root in the bracket [a, b]." },
+      { start: 70, duration: 35, text: "We compute the midpoint c equals a plus b over 2. We check which sub-interval changes sign and discard the other half." },
+      { start: 105, duration: 35, text: "Bisection is guaranteed to converge, but it is slow: each step cuts the error in half, giving linear convergence." },
+      { start: 140, duration: 35, text: "To solve equations much faster, we introduce the Newton-Raphson Method." },
+      { start: 175, duration: 40, text: "Look at the blackboard. At our current estimate x_n, we evaluate the function f(x_n) and its derivative f'(x_n)." },
+      { start: 215, duration: 40, text: "We draw the tangent line to the curve at (x_n, f(x_n)). The slope is m equals f'(x_n)." },
+      { start: 255, duration: 45, text: "We follow the tangent line down to where it crosses the x-axis. That intercept becomes our improved estimate x_{n+1}." },
+      { start: 300, duration: 45, text: "From the equation of the line, 0 minus f(x_n) equals f'(x_n) times (x_{n+1} minus x_n), which gives x_{n+1} equals x_n minus f(x_n) over f'(x_n)." },
+      { start: 345, duration: 45, text: "Now let us solve a live worked example together on the chalkboard: find the root of f(x) equals x cubed minus 2x minus 5 equals zero." },
+      { start: 390, duration: 45, text: "First, take the derivative: f'(x) equals 3x squared minus 2." },
+      { start: 435, duration: 45, text: "Let our initial guess be x_0 equals 2. Let us compute f(2): 2 cubed is 8, minus 4, minus 5, which equals negative 1." },
+      { start: 480, duration: 45, text: "Now evaluate the derivative at 2: f'(2) equals 3 times 4 minus 2, which equals 10." },
+      { start: 525, duration: 45, text: "Our first iteration x_1 equals 2 minus (-1 over 10), which is 2 plus 0.1, giving exactly 2.100000." },
+      { start: 570, duration: 50, text: "Now for Iteration 2: evaluate f(2.1). 2.1 cubed is 9.261, minus 4.2, minus 5, giving 0.061. Derivative f'(2.1) is 3 times 4.41 minus 2, which is 11.23." },
+      { start: 620, duration: 50, text: "x_2 equals 2.1 minus 0.061 over 11.23, which computes to 2.094568." },
+      { start: 670, duration: 50, text: "For Iteration 3: f(2.094568) evaluates to 0.000185. Plugging in gives x_3 equals 2.09455148." },
+      { start: 720, duration: 50, text: "Look at the precision: in just three iterations, we have computed the root accurate to 8 decimal places!" },
+      { start: 770, duration: 50, text: "This rapid acceleration happens because Newton-Raphson has quadratic convergence: the number of correct decimal digits approximately doubles with every single step." },
+      { start: 820, duration: 55, text: "We can also apply this to compute square roots. To compute the square root of N, solve x squared minus N equals zero." },
+      { start: 875, duration: 55, text: "The formula simplifies to x_{n+1} equals one half of (x_n plus N over x_n), the ancient Babylonian method." },
+      { start: 930, duration: 60, text: "Finally, beware of Newton's failure modes: if the derivative f'(x_n) is zero or near zero, the tangent line is horizontal and shoots off to infinity." }
+    ]
   }
 ];
+
